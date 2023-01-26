@@ -1,25 +1,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#define SIZE 6
 
 void memory_load()
 {
+  int n = 1000000;
   int *ptr;
-  for (int i = 0; i < 1000000; i++)
+  printf("ptr = %d\n", *ptr);
+  for (int i = 0; i < n; i++)
   {
     ptr = (int *)malloc(sizeof(int));
     free(ptr);
   }
+  printf("ptr = %d\n", *ptr);
 }
 
 int disk_load()
 {
+  int size = 1000000;
   FILE *file;
-  int numbers[SIZE] = {20, 20, 20, 20, 20, 20};
+  int numbers[size];
   char file_name[] = "numbers.bin";
   // This variable will store the result of writing/reading
   size_t result;
+
+  for (int i = 0; i < size; i++)
+  {
+    numbers[i] = 10;
+  }
 
   /* Opening the file for writing*/
   file = fopen(file_name, "w");
@@ -29,10 +37,10 @@ int disk_load()
     return -1;
   }
   // Writing a block of data
-  result = fwrite(numbers, sizeof(int), SIZE, file);
-  if (result != SIZE)
+  result = fwrite(numbers, sizeof(int), size, file);
+  if (result != size)
   {
-    printf("The %d numbers have not been written.\n", SIZE);
+    printf("The %d numbers have not been written.\n", size);
   }
 
   if (fclose(file) != 0)
@@ -80,7 +88,7 @@ int disk_load()
 
 void calculation()
 {
-  int n = 10;
+  int n = 100;
   int a[n][n], b[n][n], mul[n][n], r, c, i, j, k;
   r = c = n;
   for (i = 0; i < r; i++)
@@ -92,7 +100,8 @@ void calculation()
     }
   }
 
-  printf("multiply of the matrix=\n");
+  printf("dim of matrix a: %d\n", n);
+  printf("dim of matrix b: %d\n", n);
   for (i = 0; i < r; i++)
   {
     for (j = 0; j < c; j++)
@@ -104,28 +113,30 @@ void calculation()
       }
     }
   }
-  // for printing result
-  for (i = 0; i < r; i++)
-  {
-    for (j = 0; j < c; j++)
-    {
-      printf("%d\t", mul[i][j]);
-    }
-    printf("\n");
-  }
+  printf("\n");
 }
 
 int main(void)
 {
+  int i = 0;
+  while (i < 3000000)
+  {
+    i++;
+    printf("%d\n", i);
+  }
   clock_t t;
   clock_t memt;
   clock_t diskt;
   clock_t calct;
+
   t = clock();
+  printf("\n===== Memory allocation =====\n");
   memory_load();
   memt = clock() - t;
+  printf("\n===== Write to disk =====\n");
   disk_load();
   diskt = clock() - t - memt;
+  printf("\n===== Matrix multiplication =====\n");
   calculation();
   calct = clock() - t - memt - diskt;
   t = clock() - t;
