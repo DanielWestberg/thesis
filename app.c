@@ -2,22 +2,21 @@
 #include <stdlib.h>
 #include <time.h>
 
-void memory_load()
+void memory_load(int n)
 {
-  int n = 1000000;
   int *ptr;
-  printf("ptr = %d\n", *ptr);
   for (int i = 0; i < n; i++)
   {
     ptr = (int *)malloc(sizeof(int));
     free(ptr);
   }
-  printf("ptr = %d\n", *ptr);
+  printf("Allocated and free'd %d times\n", n);
 }
 
-int disk_load()
+int disk_load(int n)
 {
-  int size = 1000000;
+  int size = 5;
+  int sum = 0;
   FILE *file;
   int numbers[size];
   char file_name[] = "numbers.bin";
@@ -28,67 +27,67 @@ int disk_load()
   {
     numbers[i] = 10;
   }
-
-  /* Opening the file for writing*/
-  file = fopen(file_name, "w");
-  if (file == NULL)
+  for (int i = 0; i < n; i++)
   {
-    printf("Error when opening file for writing.\n");
-    return -1;
-  }
-  // Writing a block of data
-  result = fwrite(numbers, sizeof(int), size, file);
-  if (result != size)
-  {
-    printf("The %d numbers have not been written.\n", size);
-  }
-
-  if (fclose(file) != 0)
-  {
-    printf("Error when closing file.\n");
-    return -1;
-  }
-
-  /* Open for reading */
-  int sum = 0;
-  file = fopen(file_name, "r");
-  if (file == NULL)
-  {
-    printf("Error when opening file for reading.\n");
-    return -1;
-  }
-  // Reading number by number, not in block.
-  int num;
-  while (!feof(file))
-  {
-    result = fread(&num, sizeof(int), 1, file);
-    if (result != 1)
+    sum = 0;
+    /* Opening the file for writing*/
+    file = fopen(file_name, "w");
+    if (file == NULL)
     {
-      break;
+      printf("Error when opening file for writing.\n");
+      return -1;
     }
-    sum = sum + num;
-  }
+    // Writing a block of data
+    result = fwrite(numbers, sizeof(int), size, file);
+    if (result != size)
+    {
+      printf("The %d numbers have not been written.\n", size);
+    }
 
-  if (ferror(file) != 0)
-  {
-    printf("An error has occurred while reading.\n");
-  }
-  else
-  {
-    printf("The sum of numbers is: %d\n", sum);
-  }
+    if (fclose(file) != 0)
+    {
+      printf("Error when closing file.\n");
+      return -1;
+    }
 
-  if (fclose(file) != 0)
-  {
-    printf("Error when closing file.\n");
-    return -1;
+    /* Open for reading */
+    file = fopen(file_name, "r");
+    if (file == NULL)
+    {
+      printf("Error when opening file for reading.\n");
+      return -1;
+    }
+    // Reading number by number, not in block.
+    int num;
+    while (!feof(file))
+    {
+      result = fread(&num, sizeof(int), 1, file);
+      if (result != 1)
+      {
+        break;
+      }
+      sum = sum + num;
+    }
+
+    if (ferror(file) != 0)
+    {
+      printf("An error has occurred while reading.\n");
+    }
+
+    if (fclose(file) != 0)
+    {
+      printf("Error when closing file.\n");
+      return -1;
+    }
   }
+  printf("The sum of numbers is: %d\n", sum);
+  printf("Opened, wrote to disk (file) and closed %d times\n", n);
+
   return 0;
 }
 
-void calculation()
+void calculation(int n)
 {
-  int n = 100;
   int a[n][n], b[n][n], mul[n][n], r, c, i, j, k;
   r = c = n;
   for (i = 0; i < r; i++)
@@ -118,12 +117,12 @@ void calculation()
 
 int main(void)
 {
-  int i = 0;
-  while (i < 3000000)
-  {
-    i++;
-    printf("%d\n", i);
-  }
+  // int i = 0;
+  // while (i < 3000000)
+  // {
+  //   i++;
+  //   printf("%d\n", i);
+  // }
   clock_t t;
   clock_t memt;
   clock_t diskt;
@@ -131,13 +130,13 @@ int main(void)
 
   t = clock();
   printf("\n===== Memory allocation =====\n");
-  memory_load();
+  memory_load(1000000000);
   memt = clock() - t;
   printf("\n===== Write to disk =====\n");
-  disk_load();
+  disk_load(100000);
   diskt = clock() - t - memt;
   printf("\n===== Matrix multiplication =====\n");
-  calculation();
+  calculation(800);
   calct = clock() - t - memt - diskt;
   t = clock() - t;
   double time_taken_mem = ((double)memt) / CLOCKS_PER_SEC;   // in seconds
