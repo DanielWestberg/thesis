@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 void memory_load(int n)
 {
@@ -80,8 +81,8 @@ int disk_load(int n)
       return -1;
     }
   }
-  printf("The sum of numbers is: %d\n", sum);
-  printf("Opened, wrote to disk (file) and closed %d times\n", n);
+  // printf("The sum of numbers is: %d\n", sum);
+  printf("Opened file, wrote to it, and closed it %d times\n", n);
 
   return 0;
 }
@@ -131,12 +132,15 @@ int main(void)
   t = clock();
   printf("\n===== Memory allocation =====\n");
   memory_load(1000000000);
+  // memory_load(1);
   memt = clock() - t;
   printf("\n===== Write to disk =====\n");
   disk_load(100000);
+  // disk_load(1);
   diskt = clock() - t - memt;
   printf("\n===== Matrix multiplication =====\n");
   calculation(800);
+  // calculation(8);
   calct = clock() - t - memt - diskt;
   t = clock() - t;
   double time_taken_mem = ((double)memt) / CLOCKS_PER_SEC;   // in seconds
@@ -148,5 +152,34 @@ int main(void)
   printf("disk took       %f seconds to execute \n", time_taken_disk);
   printf("calc took       %f seconds to execute \n", time_taken_calc);
   printf("everything took %f seconds to execute \n", time_taken_tot);
+
+  FILE *file;
+  char file_name[] = "data.txt";
+
+  file = fopen(file_name, "w");
+  char *commandsForGnuplot[] = {"set title \"TITLEEEEE\"", "set xrange [-1:4]", "plot 'data.txt'"};
+  FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
+  if (file == NULL)
+  {
+    printf("Error when opening file for writing.\n");
+    return -1;
+  }
+
+  fprintf(file, "%d\t%f\n", 1, time_taken_mem);
+  fprintf(file, "%d\t%f\n", 2, time_taken_disk);
+  fprintf(file, "%d\t%f\n", 3, time_taken_calc);
+  fprintf(file, "%d\t%f\n", 4, time_taken_tot);
+
+  for (int i = 0; i < 3; i++)
+  {
+    fprintf(gnuplotPipe, "%s \n", commandsForGnuplot[i]); // Send commands to gnuplot one by one.
+  }
+
+  if (fclose(file) != 0)
+  {
+    printf("Error when closing file.\n");
+    return -1;
+  }
+
   return 0;
 }

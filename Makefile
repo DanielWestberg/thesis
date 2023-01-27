@@ -2,6 +2,7 @@ C_COMPILER		= gcc
 C_OPTIONS		= -g -c -Wall
 GPROF			= -pg
 VAL				= valgrind --leak-check=full -v
+SHELL			:=/bin/bash
 
 run: app
 	./app
@@ -16,4 +17,4 @@ gprof: app
 	gprof ./app | less
 
 clean:
-	rm *.o app
+	rm *.o *.txt app
