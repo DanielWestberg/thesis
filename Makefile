@@ -4,17 +4,24 @@ GPROF			= -pg
 VAL				= valgrind --leak-check=full -v
 SHELL			:=/bin/bash
 
-run: app
-	./app
+all: thesis_app
+	./script.sh
+	./thesis_app
 
-app: app.o
-	$(C_COMPILER) app.o -o app
+run: thesis_app
+	./thesis_app
 
-app.o: app.c
-	$(C_COMPILER) $(C_OPTIONS) $(GPROF) app.c -o app.o
+thesis_app: thesis_app.o
+	$(C_COMPILER) thesis_app.o -o thesis_app
 
-gprof: app
-	gprof ./app | less
+thesis_app.o: thesis_app.c
+	$(C_COMPILER) $(C_OPTIONS) $(GPROF) thesis_app.c -o thesis_app.o
+
+gprof: thesis_app
+	gprof ./thesis_app | less
 
 clean:
-	rm *.o *.txt app
+	rm *.o *.txt thesis_app numbers.bin perf.data
+
+tabs:
+	./script.sh

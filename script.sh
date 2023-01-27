@@ -1,0 +1,5 @@
+gnome-terminal --tab -- bash -c "vmstat -t -w 1 > vmstat.txt; /usr/bin/bash"
+gnome-terminal --tab -- bash -c "mpstat 1 > mpstat.txt; /usr/bin/bash"
+gnome-terminal --tab -- bash -c "pidstat 1 > pidstat.txt; /usr/bin/bash"
+gnome-terminal --tab -- bash -c "perf record -F 99 -a -g -- sleep 60 > perf_trace.txt; /usr/bin/bash"
+# gnome-terminal --tab -- bash -c "pidof thesis_app | xargs  ; /usr/bin/bash"
