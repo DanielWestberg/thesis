@@ -5,7 +5,7 @@ VAL				= valgrind --leak-check=full -v
 SHELL			:=/bin/bash
 
 all: thesis_app
-	./script.sh
+	sudo ./script.sh
 	./thesis_app
 
 run: thesis_app
@@ -21,7 +21,10 @@ gprof: thesis_app
 	gprof ./thesis_app | less
 
 clean:
-	rm *.o *.txt thesis_app numbers.bin perf.data
+	sudo rm *.o *.txt thesis_app numbers.bin perf.data perf.data.old
+
+clean_output:
+	sudo rm -rf output/*
 
 tabs:
-	./script.sh
+	sudo ./script.sh
