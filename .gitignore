@@ -1,0 +1,8 @@
+output/
+*.txt
+*.bin
+*.data
+*.data.old
+*.bpf
+*.o
+thesis_app
