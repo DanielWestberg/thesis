@@ -16,12 +16,10 @@ void memory_load(int n)
 
 int disk_load(int n)
 {
-  int size = 5;
-  int sum = 0;
   FILE *file;
+  int size = 5;
   int numbers[size];
   char file_name[] = "numbers.bin";
-  // This variable will store the result of writing/reading
   size_t result;
 
   for (int i = 0; i < size; i++)
@@ -30,51 +28,10 @@ int disk_load(int n)
   }
   for (int i = 0; i < n; i++)
   {
-    sum = 0;
     /* Opening the file for writing*/
     file = fopen(file_name, "w");
-    if (file == NULL)
-    {
-      printf("Error when opening file for writing.\n");
-      return -1;
-    }
-    // Writing a block of data
+
     result = fwrite(numbers, sizeof(int), size, file);
-    if (result != size)
-    {
-      printf("The %d numbers have not been written.\n", size);
-    }
-
-    if (fclose(file) != 0)
-    {
-      printf("Error when closing file.\n");
-      return -1;
-    }
-
-    /* Open for reading */
-    file = fopen(file_name, "r");
-    if (file == NULL)
-    {
-      printf("Error when opening file for reading.\n");
-      return -1;
-    }
-    // Reading number by number, not in block.
-    int num;
-    while (!feof(file))
-    {
-      result = fread(&num, sizeof(int), 1, file);
-      if (result != 1)
-      {
-        break;
-      }
-      sum = sum + num;
-    }
-
-    if (ferror(file) != 0)
-    {
-      printf("An error has occurred while reading.\n");
-    }
-
     if (fclose(file) != 0)
     {
       printf("Error when closing file.\n");
@@ -87,7 +44,7 @@ int disk_load(int n)
   return 0;
 }
 
-void calculation(int n)
+void matrix_mult(int n)
 {
   int a[n][n], b[n][n], mul[n][n], r, c, i, j, k;
   r = c = n;
@@ -139,8 +96,8 @@ int main(void)
   // disk_load(1);
   diskt = clock() - t - memt;
   printf("\n===== Matrix multiplication =====\n");
-  calculation(800);
-  // calculation(8);
+  matrix_mult(800);
+  // matrix_mult(8);
   calct = clock() - t - memt - diskt;
   t = clock() - t;
   double time_taken_mem = ((double)memt) / CLOCKS_PER_SEC;   // in seconds
@@ -153,27 +110,24 @@ int main(void)
   printf("calc took       %f seconds to execute \n", time_taken_calc);
   printf("everything took %f seconds to execute \n", time_taken_tot);
 
+  // ============ GNUPLOT ============
+
   FILE *file;
   char file_name[] = "data.txt";
 
   file = fopen(file_name, "w");
-  char *commandsForGnuplot[] = {"set title \"TITLEEEEE\"", "set xrange [-1:4]", "plot 'data.txt'"};
-  FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
-  if (file == NULL)
-  {
-    printf("Error when opening file for writing.\n");
-    return -1;
-  }
-
+  // char *commandsForGnuplot[] = {"set title \"TITLEEEEE\"", "set xrange [-1:4]", "plot 'data.txt'"};
+  // FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
+  
   fprintf(file, "%d\t%f\n", 1, time_taken_mem);
   fprintf(file, "%d\t%f\n", 2, time_taken_disk);
   fprintf(file, "%d\t%f\n", 3, time_taken_calc);
   fprintf(file, "%d\t%f\n", 4, time_taken_tot);
 
-  for (int i = 0; i < 3; i++)
-  {
-    fprintf(gnuplotPipe, "%s \n", commandsForGnuplot[i]); // Send commands to gnuplot one by one.
-  }
+  // for (int i = 0; i < 3; i++)
+  // {
+  //   fprintf(gnuplotPipe, "%s \n", commandsForGnuplot[i]); // Send commands to gnuplot one by one.
+  // }
 
   if (fclose(file) != 0)
   {
