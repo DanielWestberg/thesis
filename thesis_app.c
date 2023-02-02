@@ -37,6 +37,13 @@ int disk_load(int n)
       printf("Error when closing file.\n");
       return -1;
     }
+
+    file = fopen(file_name, "r");
+    if (fclose(file) != 0)
+    {
+      printf("Error when closing file.\n");
+      return -1;
+    }
   }
   // printf("The sum of numbers is: %d\n", sum);
   printf("Opened file, wrote to it, and closed it %d times\n", n);
@@ -89,15 +96,15 @@ int main(void)
   t = clock();
   printf("\n===== Memory allocation =====\n");
   memory_load(1000000000);
-  // memory_load(1);
+  memory_load(1);
   memt = clock() - t;
   printf("\n===== Write to disk =====\n");
   disk_load(100000);
-  // disk_load(1);
+  disk_load(1);
   diskt = clock() - t - memt;
   printf("\n===== Matrix multiplication =====\n");
   matrix_mult(800);
-  // matrix_mult(8);
+  matrix_mult(8);
   calct = clock() - t - memt - diskt;
   t = clock() - t;
   double time_taken_mem = ((double)memt) / CLOCKS_PER_SEC;   // in seconds
