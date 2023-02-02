@@ -14,23 +14,33 @@ mkdir "output/$CURRENT_TIME"
 # gnome-terminal --tab -- bash -c "pidstat 1 > pidstat.txt; /usr/bin/bash"
 # gnome-terminal --tab -- bash -c "iostat -xz 1 > iostat.txt; /usr/bin/bash"
 
+vmstat -t -w 1 > output/$CURRENT_TIME/vmstat.csv &
+VMSTATPID=$!
+mpstat -P ALL 1 > output/$CURRENT_TIME/mpstat.csv &
+MPSTATPID=$!
+pidstat 1 > output/$CURRENT_TIME/pidstat.csv &
+PIDSTATPID=$!
+iostat -t -xz 1 > output/$CURRENT_TIME/iostat_xz.txt &
+IOSTATPID=$!
+iostat -t -d 1 > output/$CURRENT_TIME/iostat_d.csv &
+IOSTATDPID=$!
+sar -m ALL 1 > output/$CURRENT_TIME/sar_m.txt &
+SARMPID=$!
+sar -n ALL 1 > output/$CURRENT_TIME/sar_n.txt &
+SARNPID=$!
 perf record -F 99 -a -g &
 PERFPID=$!
-vmstat -t -w 1 > output/$CURRENT_TIME/vmstat.txt &
-VMSTATPID=$!
-mpstat -P ALL 1 > output/$CURRENT_TIME/mpstat.txt &
-MPSTATPID=$!
-pidstat 1 > output/$CURRENT_TIME/pidstat.txt &
-PIDSTATPID=$!
-iostat -xz 1 > output/$CURRENT_TIME/iostat.txt &
-IOSTATPID=$!
 
 sudo perf stat -o output/$CURRENT_TIME/perfstat.txt -- make run > output/$CURRENT_TIME/app_output.txt 
 
 # wait $!
 # while pidof thesis_app != null; do echo "Waiting for app to finish..."; done
 
-kill $PERFPID $VMSTATPID $MPSTATPID $PIDSTATPID $IOSTATPID
+kill $PERFPID $VMSTATPID $MPSTATPID $PIDSTATPID $IOSTATPID $DSTATPID $SARMPID $SARNPID $IOSTATDPID
+
+make gprof > output/$CURRENT_TIME/gprof.txt
+gprof thesis_app | gprof2dot | dot -Tpdf -o output/$CURRENT_TIME/gprof2dot.pdf
+cp output/$CURRENT_TIME/gprof2dot.pdf ./
 
 # dd if=/dev/zero of=/dev/null
 # trace-cmd start -p wakeup_rt
@@ -41,3 +51,6 @@ kill $PERFPID $VMSTATPID $MPSTATPID $PIDSTATPID $IOSTATPID
 # objdump -d thesis_app
 # profile-bpfcc -F 99 -adf 60
 # bpftrace bpfcode.bpf
+
+# perf record -g -- /path/to/your/executable
+# perf script | c++filt | gprof2dot.py -f perf | dot -Tpng -o output.png
