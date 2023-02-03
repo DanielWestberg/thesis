@@ -27,3 +27,5 @@ clean:
 
 clean_output:
 	sudo rm -rf output/*
+
+clean_all: clean_output clean
