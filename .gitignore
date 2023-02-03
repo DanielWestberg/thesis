@@ -5,4 +5,7 @@ output/
 *.data.old
 *.bpf
 *.o
+*.out
+*.svg
+*.pdf
 thesis_app
