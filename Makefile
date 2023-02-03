@@ -23,7 +23,7 @@ visuals:
 	./visuals.sh
 
 clean:
-	sudo rm *.o *.txt *.pdf thesis_app numbers.bin perf.data perf.data.old gmon.out 
+	sudo rm *.o *.txt *.pdf *.svg *.bin *.data *.data.old gmon.out thesis_app
 
 clean_output:
 	sudo rm -rf output/*

@@ -82,12 +82,6 @@ void matrix_mult(int n)
 
 int main(void)
 {
-  // int i = 0;
-  // while (i < 3000000)
-  // {
-  //   i++;
-  //   printf("%d\n", i);
-  // }
   clock_t t;
   clock_t memt;
   clock_t diskt;
@@ -96,15 +90,15 @@ int main(void)
   t = clock();
   printf("\n===== Memory allocation =====\n");
   memory_load(1000000000);
-  memory_load(1);
+  // memory_load(1);
   memt = clock() - t;
   printf("\n===== Write to disk =====\n");
   disk_load(100000);
-  disk_load(1);
+  // disk_load(1);
   diskt = clock() - t - memt;
   printf("\n===== Matrix multiplication =====\n");
   matrix_mult(800);
-  matrix_mult(8);
+  // matrix_mult(8);
   calct = clock() - t - memt - diskt;
   t = clock() - t;
   double time_taken_mem = ((double)memt) / CLOCKS_PER_SEC;   // in seconds
