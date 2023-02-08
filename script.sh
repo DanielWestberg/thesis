@@ -10,12 +10,36 @@ do
     echo "Run $i"
     mkdir "$OUTPUT_DIR/$CURRENT_TIME/$i"
 
+    if [[ $i = $2 ]]
+    then
+        echo "Starting memory stress..."
+        stress -m 1 &
+    fi
+    
+    if [[ $i = $3 ]]
+    then
+        echo "Starting disk stress..."
+        stress -d 1 &
+    fi
+
+    if [[ $i = $4 ]]
+    then
+        echo "Starting cpu stress..."
+        stress -c 1 &
+    fi
+
     # Start observability tools, store output in new dir
     echo -n "Starting observability tools..."
     vmstat -t -w 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt &
     VMSTATPID=$!
-    mpstat -P ALL 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat_raw.txt &
-    MPSTATPID=$!
+    mpstat -P 0 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat0_raw.txt &
+    MPSTAT0PID=$!
+    mpstat -P 1 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat1_raw.txt &
+    MPSTAT1PID=$!
+    mpstat -P 2 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat2_raw.txt &
+    MPSTAT2PID=$!
+    mpstat -P 3 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat3_raw.txt &
+    MPSTAT3PID=$!
     pidstat 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt &
     PIDSTATPID=$!
     iostat -txd -p sda 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_xd_raw.txt &
@@ -37,8 +61,26 @@ do
 
     # Stop observability tools
     echo -n "Stopping observability tools..."
-    kill $PERFPID $VMSTATPID $MPSTATPID $PIDSTATPID $IOSTATPID $DSTATPID $SARMPID $SARNPID $IOSTATDPID
+    kill $PERFPID $VMSTATPID $MPSTAT0PID $MPSTAT1PID $MPSTAT2PID $MPSTAT3PID $PIDSTATPID $IOSTATPID $DSTATPID $SARMPID $SARNPID $IOSTATDPID
     echo "done"
+    
+    if [[ $i = $2 ]]
+    then
+        echo "Stopping memory stress..."
+        kill $(pidof stress)
+    fi
+
+    if [[ $i = $3 ]]
+    then
+        echo Stopping disk stress...
+        kill $(pidof stress)
+    fi
+
+    if [[ $i = $4 ]]
+    then
+        echo Stopping cpu stress...
+        kill $(pidof stress)
+    fi
 
     # Generate gprof data
     echo -n "Generating gprof data..."
@@ -61,11 +103,17 @@ do
     
     # Format vmstat
     sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt | sed 's/\s\+/,/g' | egrep -v "procs|buff" > $OUTPUT_DIR/$CURRENT_TIME/$i/vmstat.csv
-    sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/vmstat.csv
+    sed -i -e "s/^/$i/" $OUTPUT_DIR/$CURRENT_TIME/$i/vmstat.csv
     
     # Format mpstat
-    sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat_raw.txt | sed 's/\s\+/,/g' | grep . | egrep -v "Linux|%" > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat.csv
-    sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat.csv
+    sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat0_raw.txt | sed 's/\s\+/,/g' | grep . | egrep -v "Linux|%" > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat0.csv
+    sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat0.csv
+    sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat1_raw.txt | sed 's/\s\+/,/g' | grep . | egrep -v "Linux|%" > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat1.csv
+    sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat1.csv
+    sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat2_raw.txt | sed 's/\s\+/,/g' | grep . | egrep -v "Linux|%" > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat2.csv
+    sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat2.csv
+    sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat3_raw.txt | sed 's/\s\+/,/g' | grep . | egrep -v "Linux|%" > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat3.csv
+    sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat3.csv
     
     # Format pidstat
     sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | grep "thesis_app" | egrep -v "Linux|%" > $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
@@ -98,7 +146,10 @@ do
     # Append to file containing all iterations
     sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv >> $OUTPUT_DIR/$CURRENT_TIME/runtimes.csv
     sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/vmstat.csv >> $OUTPUT_DIR/$CURRENT_TIME/vmstat.csv
-    sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat.csv >> $OUTPUT_DIR/$CURRENT_TIME/mpstat.csv
+    sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat0.csv >> $OUTPUT_DIR/$CURRENT_TIME/mpstat0.csv
+    sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat1.csv >> $OUTPUT_DIR/$CURRENT_TIME/mpstat1.csv
+    sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat2.csv >> $OUTPUT_DIR/$CURRENT_TIME/mpstat2.csv
+    sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat3.csv >> $OUTPUT_DIR/$CURRENT_TIME/mpstat3.csv
     sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv >> $OUTPUT_DIR/$CURRENT_TIME/pidstat.csv
     sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_xd.csv >> $OUTPUT_DIR/$CURRENT_TIME/iostat_xd.csv
     sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_d.csv >> $OUTPUT_DIR/$CURRENT_TIME/iostat_d.csv
@@ -118,6 +169,10 @@ done
 
 
 # NOT USED STUFF
+
+# ps ax | grep stress | awk '{print $1}' | xargs -I {} cgroup -q {}
+# for i in $(ps ax | grep stress | awk '{print $1}'); do taskset -cp 3 $i ; done
+
 
 # gnome-terminal --tab -- bash -c "perf record -F 99 -a -g -- sleep 60; /usr/bin/bash"
 # gnome-terminal --tab -- bash -c "pidof thesis_app | xargs -I {} strace -p {}; /usr/bin/bash"
