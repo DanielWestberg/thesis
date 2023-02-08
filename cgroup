@@ -1,0 +1,147 @@
+#!/bin/bash
+# CPU Group command to set up cpu affinity groups
+# Author: https://github.com/henrypotgieter/cgroup
+
+# This file assumes an 4 core system and creates 3 groups to choose from to
+# isolate processes, modify as you see fit based on your needs and how many
+# cores you have available or groups you would like.
+#
+# Requires cgroup-tools and libcgroup1 packages to be present
+# and cgroup cpuset mount to be active.
+
+CURRENT_USER=$USER
+
+cpusetvals () {
+    # If it's not already mounted, mount the cpuset 
+    if [[ ! $(mount | grep cpuset) ]] ; then
+        mount -t cgroup -ocpuset cpuset /sys/fs/cgroup/cpuset
+    fi
+    # Create all the groups with the $CURRENT_USER able to write the tasks file
+    cgcreate -a $CURRENT_USER -t $CURRENT_USER -g cpuset:cpu_01
+    cgcreate -a $CURRENT_USER -t $CURRENT_USER -g cpuset:cpu_12
+    cgcreate -a $CURRENT_USER -t $CURRENT_USER -g cpuset:cpu_23
+    cgcreate -a $CURRENT_USER -t $CURRENT_USER -g cpuset:cpu_0123
+    cgcreate -a $CURRENT_USER -t $CURRENT_USER -g cpuset,memory:cpu_23_4G
+    cgcreate -a $CURRENT_USER -t $CURRENT_USER -g cpuset,memory:cpu_23_6G
+    cgcreate -a $CURRENT_USER -t $CURRENT_USER -g cpuset,memory:cpu_23_8G
+    # Populate the cpuset.cpus files with the appropriate contents
+    echo "0-1" > /sys/fs/cgroup/cpuset/cpu_01/cpuset.cpus
+    echo "1-2" > /sys/fs/cgroup/cpuset/cpu_12/cpuset.cpus
+    echo "2-3" > /sys/fs/cgroup/cpuset/cpu_23/cpuset.cpus
+    echo "0-3" > /sys/fs/cgroup/cpuset/cpu_0123/cpuset.cpus
+    echo "2-3" > /sys/fs/cgroup/cpuset/cpu_23_4G/cpuset.cpus
+    echo "2-3" > /sys/fs/cgroup/cpuset/cpu_23_6G/cpuset.cpus
+    echo "2-3" > /sys/fs/cgroup/cpuset/cpu_23_8G/cpuset.cpus
+    # Populate the cpuset.mems files with the appropriate contents
+    echo "0-1" > /sys/fs/cgroup/cpuset/cpu_01/cpuset.mems
+    echo "1-2" > /sys/fs/cgroup/cpuset/cpu_12/cpuset.mems
+    echo "2-3" > /sys/fs/cgroup/cpuset/cpu_23/cpuset.mems
+    echo "0-3" > /sys/fs/cgroup/cpuset/cpu_0123/cpuset.mems
+    echo "2-3" > /sys/fs/cgroup/cpuset/cpu_23_4G/cpuset.mems
+    echo "2-3" > /sys/fs/cgroup/cpuset/cpu_23_6G/cpuset.mems
+    echo "2-3" > /sys/fs/cgroup/cpuset/cpu_23_8G/cpuset.mems    
+    # Specify memory limits
+    echo "4000000000" > /sys/fs/cgroup/memory/cpu_23_4G/memory.limit_in_bytes
+    echo "6000000000" > /sys/fs/cgroup/memory/cpu_23_6G/memory.limit_in_bytes
+    echo "8000000000" > /sys/fs/cgroup/memory/cpu_23_8G/memory.limit_in_bytes
+}
+
+rootcheck () {
+    # Check if executed as root
+    if [[ $UID -ne 0 ]] ; then
+        echo "Must be executed as root"
+        exit 1
+    fi
+}
+
+set_proc () {
+    # Set process(es) to specific CPUSET
+        if [[ $PROCESS == "all" ]] ; then
+            rootcheck
+            echo "All processes moving to cpuset $CPUSET"
+            for pid in $(ps -eLo pid) ; do
+                cgclassify -g cpuset:$CPUSET $pid 2>/dev/null 
+                taskset -cp $TASKSET $pid
+            done
+        else
+            for pid in ${PROCESS} ; do 
+                echo "Moving process $pid to cpuset $CPUSET"
+                cgclassify -g cpuset:$CPUSET $pid 2>/dev/null
+                taskset -cp $TASKSET $pid
+            done
+        fi
+}
+
+showusage () {
+    cat << EOF
+Usage:
+cgroup [options] [arguments]
+
+This script assists in creating and assigning processes the cpuset control
+groups.  The arguments to assign processes are as follows and should only be
+entered one at a time:
+
+    -q   Assign to CPU 0 & 1
+    -w   Assign to CPU 1 & 2
+    -e   Assign to CPU 2 & 3
+    -r   Assign to CPU 0 - 3
+
+The above options should be entered with a process, list of processes or 'all'
+for all processes as their argument(s).
+
+These options do not require arguments:
+    
+    -z   Reset all process to all cores
+    -i   Initialize CPUSET groups
+    -h   Display this help
+EOF
+}
+
+# Check for arguments being passed
+
+while getopts "ihq:w:e:r:z" opt; do
+    case ${opt} in
+        i) 
+            # Initialize cgroups
+            rootcheck
+            cpusetvals
+            ;;
+        h)
+            #Show usage
+            showusage
+            ;;
+        q)
+            PROCESS=$OPTARG
+            CPUSET="cpu_01"
+            TASKSET="0-1"
+            set_proc
+            ;;
+        w)
+            PROCESS=$OPTARG
+            CPUSET="cpu_12"
+            TASKSET="1-2"
+            set_proc
+            ;;
+        e)
+            PROCESS=$OPTARG
+            CPUSET="cpu_23"
+            TASKSET="2-3"
+            set_proc
+            ;;
+        r)
+            PROCESS=$OPTARG
+            CPUSET="cpu_0123"
+            TASKSET="0-3"
+            set_proc
+            ;;
+        z)
+            # Move all processes back to global cpuset 
+            rootcheck
+            for pid in $(ps -eLo pid) ; do
+                cgclassify -g cpuset:. $pid 2>/dev/null 
+                taskset -cp 0-3 $pid
+            done
+            ;;
+    esac
+done
+shift $((OPTIND -1))
