@@ -9,3 +9,6 @@ output/
 *.svg
 *.pdf
 thesis_app
+mem_app
+cpu_app
+disk_app
