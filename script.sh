@@ -1,31 +1,62 @@
 #!/usr/bin/bash
 
+ITERATIONS=4
+
+ALLCPUSITER=99
+# MEMAPPITER=2
+# DISKAPPITER=3
+# CPUAPPITER=4
+
+MEMSTRESSITER=2
+DISKSTRESSITER=3
+CPUSTRESSITER=4
+
+STRESSISOLCPU=3
+APPISOLCPU=3
+
 # Store current time as a variable and create a new dir
 OUTPUT_DIR="output"
 CURRENT_TIME="$(date +%Y%m%d_%H%M%S)"
 mkdir "$OUTPUT_DIR/$CURRENT_TIME"
 
-for (( i=1; i<=$1; i++ ))
+for (( i=1; i<=$ITERATIONS; i++ ))
 do 
     echo "Run $i"
     mkdir "$OUTPUT_DIR/$CURRENT_TIME/$i"
 
-    if [[ $i = $2 ]]
+    # Add noise to system
+    if [[ $i = $MEMSTRESSITER ]]
     then
         echo "Starting memory stress..."
         stress -m 1 &
     fi
     
-    if [[ $i = $3 ]]
+    if [[ $i = $DISKSTRESSITER ]]
     then
         echo "Starting disk stress..."
         stress -d 1 &
     fi
 
-    if [[ $i = $4 ]]
+    if [[ $i = $CPUSTRESSITER ]]
     then
         echo "Starting cpu stress..."
         stress -c 1 &
+    fi
+
+    # Isolate CPU's
+    if [[ $i = $ALLCPUSITER ]]
+    then
+        echo -n "Using all CPU's 0-3..."
+        sudo ./cgroup -0123 all &
+        echo "done"
+    else
+        echo -n "Isolating all processes to CPU's 0-2..."
+        sudo ./cgroup -012 all &
+        echo "done"
+        
+        echo -n "Isolating stress processes to CPU $STRESSISOLCPU..."
+        for pid in $(ps ax | grep stress | awk '{print $1}'); do taskset -pc $STRESSISOLCPU $pid ; done
+        echo "done"
     fi
 
     # Start observability tools, store output in new dir
@@ -50,13 +81,44 @@ do
     SARMPID=$!
     sar -n ALL 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/sar_n_raw.txt &
     SARNPID=$!
-    perf record -F 99 -a -g &
-    PERFPID=$!
+
+    if [[ $i = $ALLCPUSITER ]]
+    then
+        perf record -F max -a -g -s -T -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data &
+        PERFPID=$!
+    else
+        perf record -F max -g -s -T -C $APPISOLCPU -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data &
+        PERFPID=$!
+    fi
+
     echo "done"
 
     # Run application
-    echo -n "Running application..."
-    sudo perf stat -o $OUTPUT_DIR/$CURRENT_TIME/$i/perfstat.txt make run > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
+    echo -n "Running application on CPU $APPISOLCPU..."
+    sudo taskset -c $APPISOLCPU make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+    # if [[ $(expr $i % $MEMAPPITER) = "1" ]]
+    # then
+    #     echo -n "Running memory application on CPU $APPISOLCPU..."
+    #     sudo taskset -c $APPISOLCPU make run_mem_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+    # elif [[ $(expr $i % $DISKAPPITER) = "2" ]]
+    # then
+    #     echo -n "Running disk application on CPU $APPISOLCPU..."
+    #     sudo taskset -c $APPISOLCPU make run_disk_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+    # else
+    #     echo -n "Running cpu application on CPU $APPISOLCPU..."
+    #     sudo taskset -c $APPISOLCPU make run_cpu_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+    # fi
+
+    # if [[ $i = $ALLCPUSITER ]]
+    # then
+    #     echo -n "Running application on all CPU's..."
+    #     sudo make run > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
+    #     # sudo perf stat -o $OUTPUT_DIR/$CURRENT_TIME/$i/perfstat.txt make run > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
+    # else
+    #     echo -n "Running application on CPU $APPISOLCPU..."
+    #     sudo taskset -c $APPISOLCPU make run > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+    # fi
+
     echo "done"
 
     # Stop observability tools
@@ -64,38 +126,42 @@ do
     kill $PERFPID $VMSTATPID $MPSTAT0PID $MPSTAT1PID $MPSTAT2PID $MPSTAT3PID $PIDSTATPID $IOSTATPID $DSTATPID $SARMPID $SARNPID $IOSTATDPID
     echo "done"
     
-    if [[ $i = $2 ]]
-    then
-        echo "Stopping memory stress..."
-        kill $(pidof stress)
-    fi
+    echo "Stopping stress..."
+    for pid in $(pidof stress); do kill $pid ; done
 
-    if [[ $i = $3 ]]
-    then
-        echo Stopping disk stress...
-        kill $(pidof stress)
-    fi
+    # if [[ $i = $2 ]]
+    # then
+    #     echo "Stopping memory stress..."
+    #     kill $(pidof stress)
+    # fi
 
-    if [[ $i = $4 ]]
-    then
-        echo Stopping cpu stress...
-        kill $(pidof stress)
-    fi
+    # if [[ $i = $3 ]]
+    # then
+    #     echo Stopping disk stress...
+    #     kill $(pidof stress)
+    # fi
+
+    # if [[ $i = $4 ]]
+    # then
+    #     echo Stopping cpu stress...
+    #     kill $(pidof stress)
+    # fi
 
     # Generate gprof data
-    echo -n "Generating gprof data..."
-    make gprof > $OUTPUT_DIR/$CURRENT_TIME/$i/gprof.txt
-    gprof thesis_app | gprof2dot | dot -Tpdf -o $OUTPUT_DIR/$CURRENT_TIME/$i/gprof2dot.pdf
-    cp $OUTPUT_DIR/$CURRENT_TIME/$i/gprof2dot.pdf ./
-    echo "done"
+    # echo -n "Generating gprof data..."
+    # make gprof > $OUTPUT_DIR/$CURRENT_TIME/$i/gprof.txt
+    # gprof thesis_app | gprof2dot | dot -Tpdf -o $OUTPUT_DIR/$CURRENT_TIME/$i/gprof2dot.pdf
+    # cp $OUTPUT_DIR/$CURRENT_TIME/$i/gprof2dot.pdf ./
+    # echo "done"
 
     sleep 1
     # Generate flamegraph
     echo -n "Generating flame graph..."
-    sudo perf script | ../FlameGraph/stackcollapse-perf.pl > ../FlameGraph/out.perf-folded
+    cd $OUTPUT_DIR/$CURRENT_TIME/$i/
+    sudo perf script | ../../../../FlameGraph/stackcollapse-perf.pl > ../../../../FlameGraph/out.perf-folded
+    cd ../../../
     ../FlameGraph/flamegraph.pl ../FlameGraph/out.perf-folded > ../FlameGraph/perf.svg
     cp ../FlameGraph/perf.svg $OUTPUT_DIR/$CURRENT_TIME/$i/
-    cp ../FlameGraph/perf.svg ./
     echo "done"
 
     # Format output data to csv
@@ -118,6 +184,18 @@ do
     # Format pidstat
     sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | grep "thesis_app" | egrep -v "Linux|%" > $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
     sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
+    # if [[ $i = $MEMAPPITER ]]
+    # then
+    #     sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | grep "mem_app" | egrep -v "Linux|%" > $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
+    #     sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
+    # elif [[ $i = $DISKAPPITER ]]
+    # then
+    #     sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | grep "disk_app" | egrep -v "Linux|%" > $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
+    #     sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
+    # else
+    #     sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | grep "cpu_app" | egrep -v "Linux|%" > $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
+    #     sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
+    # fi
     
     # Format iostat -xd
     sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_xd_raw.txt | grep . | egrep -v "Linux|Device" > $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_xd_temp.csv
@@ -139,7 +217,7 @@ do
     
     # sadf  $OUTPUT_DIR/$CURRENT_TIME/$i/sar_m_raw.txt
     
-    # Format thesis_app output
+    # Format app output
     egrep -v "./|gcc" < $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt > $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
     sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
     
@@ -154,12 +232,13 @@ do
     sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_xd.csv >> $OUTPUT_DIR/$CURRENT_TIME/iostat_xd.csv
     sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_d.csv >> $OUTPUT_DIR/$CURRENT_TIME/iostat_d.csv
     echo "done"
+    echo ""
 
 done
 
-
-
-
+echo -n "Resetting CPU isolations..."
+sudo ./cgroup -r &
+echo "done"
 
 
 
@@ -172,7 +251,6 @@ done
 
 # ps ax | grep stress | awk '{print $1}' | xargs -I {} cgroup -q {}
 # for i in $(ps ax | grep stress | awk '{print $1}'); do taskset -cp 3 $i ; done
-
 
 # gnome-terminal --tab -- bash -c "perf record -F 99 -a -g -- sleep 60; /usr/bin/bash"
 # gnome-terminal --tab -- bash -c "pidof thesis_app | xargs -I {} strace -p {}; /usr/bin/bash"
