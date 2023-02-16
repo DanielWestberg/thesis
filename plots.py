@@ -2,13 +2,19 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
+import webbrowser
+import os
 import json
 
 
 # plt.rcParams["figure.figsize"] = [7.50, 3.50]
 # plt.rcParams["figure.autolayout"] = True
 
-path = '/home/dwdd/thesis/output/20230216_105327'
+path = '/home/dwdd/thesis/output/20230216_111410'
+chrome_path = '/usr/bin/google-chrome %s'
+
+for dir in os.walk(path):
+    webbrowser.get(chrome_path).open(dir[0] + '/perf.svg')
 
 # fig, axs = plt.subplots(6)
 # fig.suptitle('Vertically stacked subplots')
@@ -48,12 +54,14 @@ mpstat0_df['Time'] = pd.to_datetime(mpstat0_df['Time'])
 mpstat0_df['seconds'] = mpstat0_df['Time'].dt.strftime("%M:%S")
 mpstat0_df.set_index('seconds')
 # mpstat0_df.plot()
-mpstat0_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+mpstat0_ax = mpstat0_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+mpstat0_ax.set_xticks(mpstat0_df.index)
+mpstat0_ax.set_xticklabels(mpstat0_df.seconds, rotation=90)
 # mpstat0_df.plot(ax=axs[1])
 plt.xlabel('time')
 plt.ylabel('y')
 plt.title('mpstat -P 0 1')
-plt.xticks(fontsize=9, rotation=90)
+# plt.xticks(fontsize=9, rotation=90)
 
 mpstat1_headers = ['Run', 'Time', 'CPU', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle']
 mpstat1_df = pd.read_csv(f'{path}/mpstat1.csv', verbose=True, names=mpstat1_headers)
@@ -61,12 +69,14 @@ mpstat1_df['Time'] = pd.to_datetime(mpstat1_df['Time'])
 mpstat1_df['seconds'] = mpstat1_df['Time'].dt.strftime("%M:%S")
 mpstat1_df.set_index('seconds')
 # mpstat1_df.plot()
-mpstat1_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+mpstat1_ax = mpstat1_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+mpstat1_ax.set_xticks(mpstat1_df.index)
+mpstat1_ax.set_xticklabels(mpstat1_df.seconds, rotation=90)
 # mpstat1_df.plot(ax=axs[1])
 plt.xlabel('time')
 plt.ylabel('y')
 plt.title('mpstat -P 1 1')
-plt.xticks(fontsize=9, rotation=90)
+# plt.xticks(fontsize=9, rotation=90)
 
 mpstat2_headers = ['Run', 'Time', 'CPU', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle']
 mpstat2_df = pd.read_csv(f'{path}/mpstat2.csv', verbose=True, names=mpstat2_headers)
@@ -74,12 +84,14 @@ mpstat2_df['Time'] = pd.to_datetime(mpstat2_df['Time'])
 mpstat2_df['seconds'] = mpstat2_df['Time'].dt.strftime("%M:%S")
 mpstat2_df.set_index('seconds')
 # mpstat2_df.plot()
-mpstat2_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+mpstat2_ax = mpstat2_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+mpstat2_ax.set_xticks(mpstat2_df.index)
+mpstat2_ax.set_xticklabels(mpstat2_df.seconds, rotation=90)
 # mpstat2_df.plot(ax=axs[1])
 plt.xlabel('time')
 plt.ylabel('y')
 plt.title('mpstat -P 2 1')
-plt.xticks(fontsize=9, rotation=90)
+# plt.xticks(fontsize=9, rotation=90)
 
 mpstat3_headers = ['Run', 'Time', 'CPU', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle']
 mpstat3_df = pd.read_csv(f'{path}/mpstat3.csv', verbose=True, names=mpstat3_headers)
@@ -87,12 +99,14 @@ mpstat3_df['Time'] = pd.to_datetime(mpstat3_df['Time'])
 mpstat3_df['seconds'] = mpstat3_df['Time'].dt.strftime("%M:%S")
 mpstat3_df.set_index('seconds')
 # mpstat3_df.plot()
-mpstat3_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+mpstat3_ax = mpstat3_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+mpstat3_ax.set_xticks(mpstat3_df.index)
+mpstat3_ax.set_xticklabels(mpstat3_df.seconds, rotation=90)
 # mpstat3_df.plot(ax=axs[1])
 plt.xlabel('time')
 plt.ylabel('y')
 plt.title('mpstat -P 3 1')
-plt.xticks(fontsize=9, rotation=90)
+# plt.xticks(fontsize=9, rotation=90)
 
 pidstat_headers = ['Run', 'Time', 'UID', 'PID', '"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU', 'CPU', 'Command']
 pidstat_df = pd.read_csv(f'{path}/pidstat.csv', verbose=True, names=pidstat_headers)
@@ -109,32 +123,36 @@ plt.ylabel('y')
 plt.title('pidstat 1 | grep thesis_app')
 # plt.xticks(fontsize=9, rotation=90)
 
-iostat_d_headers = ['Run', 'Date', 'Time', 'Device', 'tps', 'kB_read/s', 'kB_wrtn/s', 'kB_dscd/s', 'kB_read', 'kB_wrtn', 'kB_dscd']
+iostat_d_headers = ['Run', 'Date', 'Time', 'Device', 'tps', 'kB_read/s', 'kB_wrtn/s', 'kB_dscrded/s', 'kB_read', 'kB_wrtn', 'kB_dscrded']
 iostat_d_df = pd.read_csv(f'{path}/iostat_d.csv', verbose=True, names=iostat_d_headers)
 iostat_d_df['Time'] = pd.to_datetime(iostat_d_df['Time'])
 iostat_d_df['seconds'] = iostat_d_df['Time'].dt.strftime("%M:%S")
 iostat_d_df.set_index('Time')
 # iostat_d_df.plot()
-iostat_d_df.plot(kind='line', x='seconds', y=['tps', 'kB_read/s', 'kB_wrtn/s', 'kB_dscd/s', 'kB_read', 'kB_wrtn', 'kB_dscd'])
+iostat_d_ax = iostat_d_df.plot(kind='line', x='seconds', y=['tps', 'kB_read/s', 'kB_wrtn/s', 'kB_dscrded/s', 'kB_read', 'kB_wrtn', 'kB_dscrded'])
+iostat_d_ax.set_xticks(iostat_d_df.index)
+iostat_d_ax.set_xticklabels(iostat_d_df.seconds, rotation=90)
 # iostat_d_df.plot(ax=axs[3])
 plt.xlabel('time')
 plt.ylabel('y')
 plt.title('iostat -td -p sda 1')
-plt.xticks(fontsize=9, rotation=90)
+# plt.xticks(fontsize=9, rotation=90)
 
-iostat_xd_headers = ['Run', 'Date', 'Time', 'Device', 'r/s', 'rkB/s', 'rrqm/s', '"%"rrqm', 'r_await', 'rareq-sz', 'w/s', 'wkB/s', 'wrqm/s', '"%"wrqm',\
+iostat_xd_headers = ['Run', 'Date', 'Time', 'Device', 'read reqs per s', 'rkB/s', 'rrqm/s', '"%"rrqm', 'r_await', 'rareq-sz', 'write reqs per s', 'wkB/s', 'wrqm/s', '"%"wrqm',\
                     'w_await', 'wareq-sz', 'd/s', 'dkB/s', 'drqm/s', '"%"drqm', 'd_await', 'dareq-sz', 'f/s', 'f_await', 'aqu-sz', '"%"util']
 iostat_xd_df = pd.read_csv(f'{path}/iostat_xd.csv', verbose=True, names=iostat_xd_headers)
 iostat_xd_df['Time'] = pd.to_datetime(iostat_xd_df['Time'])
 iostat_xd_df['seconds'] = iostat_xd_df['Time'].dt.strftime("%M:%S")
 iostat_xd_df.set_index('seconds')
 # iostat_xd_df.plot()
-iostat_xd_df.plot(kind='line', x='seconds', y=['r/s', 'rkB/s', 'rrqm/s', '"%"rrqm', 'r_await', 'rareq-sz', 'w/s'])
+iostat_xd_ax = iostat_xd_df.plot(kind='line', x='seconds', y=['read reqs per s', 'rkB/s', 'rrqm/s', '"%"rrqm', 'r_await', 'rareq-sz', 'write reqs per s'])
+iostat_xd_ax.set_xticks(iostat_xd_df.index)
+iostat_xd_ax.set_xticklabels(iostat_xd_df.seconds, rotation=90)
 # iostat_xd_df.plot(ax=axs[4])
 plt.xlabel('time')
 plt.ylabel('y')
 plt.title('iostat -txd -p sda 1')
-plt.xticks(fontsize=9, rotation=90)
+# plt.xticks(fontsize=9, rotation=90)
 
 runtime_headers = ['Run', 'Memory time', 'Disk time', 'Calc time', 'Tot time']
 runtime_df = pd.read_csv(f'{path}/runtimes.csv', verbose=True, names=runtime_headers)
