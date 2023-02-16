@@ -8,12 +8,12 @@ import json
 # plt.rcParams["figure.figsize"] = [7.50, 3.50]
 # plt.rcParams["figure.autolayout"] = True
 
-path = '/home/dwdd/thesis/output/20230208_143216'
+path = '/home/dwdd/thesis/output/20230216_105327'
 
 # fig, axs = plt.subplots(6)
 # fig.suptitle('Vertically stacked subplots')
 
-vmstat_headers = ['Run', 'r', 'b', 'swpd', 'free', 'buff', 'cache', 'si', 'so', 'bi', 'bo', 'in', 'cs', 'us', 'sy', 'id', 'wa', 'st', 'Date', 'Time']
+vmstat_headers = ['Run', 'runnable processes', 'ps blckd wait for I/O', 'tot swpd', 'free', 'buff', 'cache', 'mem swapped in/s', 'mem swapped out/s', 'from block device (KiB/s)', 'to block device (KiB/s)', 'interrupts/s', 'cxt switch/s', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time', 'Date', 'Time']
 vmstat_df = pd.read_csv(f'{path}/vmstat.csv', verbose=True, names=vmstat_headers)
 vmstat_df['Time'] = pd.to_datetime(vmstat_df['Time'])
 vmstat_df['seconds'] = vmstat_df['Time'].dt.strftime("%M:%S")
@@ -34,7 +34,7 @@ plt.xlabel('time')
 plt.ylabel('y')
 plt.title('vmstat -t -w 1')
 # plt.xticks(fontsize=9, rotation=90)
-vmstat_ax3 = vmstat_df.plot(kind='line', x='seconds', y=['r', 'b', 'swpd', 'si', 'so', 'bi', 'bo', 'in', 'cs', 'us', 'sy', 'id', 'wa', 'st'])
+vmstat_ax3 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'runnable processes', 'ps blckd wait for I/O', 'tot swpd', 'mem swapped in/s', 'mem swapped out/s', 'from block device (KiB/s)', 'to block device (KiB/s)', 'interrupts/s', 'cxt switch/s', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time'])
 vmstat_ax3.set_xticks(vmstat_df.index)
 vmstat_ax3.set_xticklabels(vmstat_df.seconds, rotation=90)
 plt.xlabel('time')
