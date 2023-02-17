@@ -1,8 +1,8 @@
 #!/usr/bin/bash
 
-ITERATIONS=4
+ITERATIONS=6
 
-ALLCPUSITER=99
+ALLCPUSITER=0
 # MEMAPPITER=2
 # DISKAPPITER=3
 # CPUAPPITER=4
@@ -10,6 +10,7 @@ ALLCPUSITER=99
 MEMSTRESSITER=2
 DISKSTRESSITER=3
 CPUSTRESSITER=4
+IOSTRESSITER=5
 
 STRESSISOLCPU=3
 APPISOLCPU=3
@@ -20,31 +21,37 @@ CURRENT_TIME="$(date +%Y%m%d_%H%M%S)"
 mkdir "$OUTPUT_DIR/$CURRENT_TIME"
 
 for (( i=1; i<=$ITERATIONS; i++ ))
-do 
+do
     echo "Run $i"
     mkdir "$OUTPUT_DIR/$CURRENT_TIME/$i"
 
     # Add noise to system
-    if [[ $i = $MEMSTRESSITER ]]
+    if [[ $(expr $i % $ITERATIONS) = "$MEMSTRESSITER" ]]
     then
         echo "Starting memory stress..."
         stress -m 1 &
     fi
     
-    if [[ $i = $DISKSTRESSITER ]]
+    if [[ $(expr $i % $ITERATIONS) = "$DISKSTRESSITER" ]]
     then
         echo "Starting disk stress..."
         stress -d 1 &
     fi
 
-    if [[ $i = $CPUSTRESSITER ]]
+    if [[ $(expr $i % $ITERATIONS) = "$CPUSTRESSITER" ]]
     then
         echo "Starting cpu stress..."
         stress -c 1 &
     fi
 
+    if [[ $(expr $i % $ITERATIONS) = "0" ]]
+    then
+        echo "Starting cpu stress..."
+        stress -i 1 &
+    fi
+
     # Isolate CPU's
-    if [[ $i = $ALLCPUSITER ]]
+    if [[ $ALLCPUSITER = 1 ]]
     then
         echo -n "Using all CPU's 0-3..."
         sudo ./cgroup -0123 all &
@@ -59,43 +66,48 @@ do
         echo "done"
     fi
 
-    # Start observability tools, store output in new dir
-    echo -n "Starting observability tools..."
-    vmstat -t -w 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt &
-    VMSTATPID=$!
-    mpstat -P 0 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat0_raw.txt &
-    MPSTAT0PID=$!
-    mpstat -P 1 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat1_raw.txt &
-    MPSTAT1PID=$!
-    mpstat -P 2 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat2_raw.txt &
-    MPSTAT2PID=$!
-    mpstat -P 3 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat3_raw.txt &
-    MPSTAT3PID=$!
-    pidstat 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt &
-    PIDSTATPID=$!
-    iostat -txd -p sda 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_xd_raw.txt &
-    IOSTATPID=$!
-    iostat -td -p sda 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_d_raw.txt &
-    IOSTATDPID=$!
-    sar -m ALL 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/sar_m_raw.txt &
-    SARMPID=$!
-    sar -n ALL 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/sar_n_raw.txt &
-    SARNPID=$!
 
-    if [[ $i = $ALLCPUSITER ]]
+    if [[ $i != $NOOBSERVEITER ]]
     then
-        perf record -F max -a -g -s -T -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data &
-        PERFPID=$!
+        # Start observability tools, store output in new dir
+        echo -n "Starting observability tools..."
+        vmstat -t -w 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt &
+        VMSTATPID=$!
+        mpstat -P 0 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat0_raw.txt &
+        MPSTAT0PID=$!
+        mpstat -P 1 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat1_raw.txt &
+        MPSTAT1PID=$!
+        mpstat -P 2 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat2_raw.txt &
+        MPSTAT2PID=$!
+        mpstat -P 3 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat3_raw.txt &
+        MPSTAT3PID=$!
+        pidstat 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt &
+        PIDSTATPID=$!
+        iostat -txd -p sda 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_xd_raw.txt &
+        IOSTATPID=$!
+        iostat -td -p sda 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_d_raw.txt &
+        IOSTATDPID=$!
+        sar -m ALL 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/sar_m_raw.txt &
+        SARMPID=$!
+        sar -n ALL 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/sar_n_raw.txt &
+        SARNPID=$!
+
+        if [[ $ALLCPUSITER = 1 ]]
+        then
+            perf record -F max -a -g -s -T -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data &
+            PERFPID=$!
+        else
+            perf record -F max -g -s -T -C $APPISOLCPU -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data &
+            PERFPID=$!
+        fi
+        
+        echo "done"
     else
-        perf record -F max -g -s -T -C $APPISOLCPU -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data &
-        PERFPID=$!
+        echo "No observability tools"
     fi
 
-    echo "done"
 
     # Run application
-    echo -n "Running application on CPU $APPISOLCPU..."
-    sudo taskset -c $APPISOLCPU make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
     # if [[ $(expr $i % $MEMAPPITER) = "1" ]]
     # then
     #     echo -n "Running memory application on CPU $APPISOLCPU..."
@@ -109,15 +121,15 @@ do
     #     sudo taskset -c $APPISOLCPU make run_cpu_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
     # fi
 
-    # if [[ $i = $ALLCPUSITER ]]
-    # then
-    #     echo -n "Running application on all CPU's..."
-    #     sudo make run > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
-    #     # sudo perf stat -o $OUTPUT_DIR/$CURRENT_TIME/$i/perfstat.txt make run > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
-    # else
-    #     echo -n "Running application on CPU $APPISOLCPU..."
-    #     sudo taskset -c $APPISOLCPU make run > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
-    # fi
+    if [[ $ALLCPUSITER = 1 ]]
+    then
+        echo -n "Running application on all CPU's..."
+        sudo make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
+        # sudo perf stat -o $OUTPUT_DIR/$CURRENT_TIME/$i/perfstat.txt make run > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
+    else
+        echo -n "Running application on CPU $APPISOLCPU..."
+        sudo taskset -c $APPISOLCPU make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+    fi
 
     echo "done"
 
@@ -128,24 +140,6 @@ do
     
     echo "Stopping stress..."
     for pid in $(pidof stress); do kill $pid ; done
-
-    # if [[ $i = $2 ]]
-    # then
-    #     echo "Stopping memory stress..."
-    #     kill $(pidof stress)
-    # fi
-
-    # if [[ $i = $3 ]]
-    # then
-    #     echo Stopping disk stress...
-    #     kill $(pidof stress)
-    # fi
-
-    # if [[ $i = $4 ]]
-    # then
-    #     echo Stopping cpu stress...
-    #     kill $(pidof stress)
-    # fi
 
     # Generate gprof data
     # echo -n "Generating gprof data..."
