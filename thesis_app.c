@@ -8,7 +8,7 @@ void memory_load(int n)
   int *ptr;
   for (int i = 0; i < n; i++)
   {
-    ptr = (int *)malloc(sizeof(int));
+    ptr = (int *)malloc(sizeof(int) * 10);
     free(ptr);
   }
 }
@@ -29,10 +29,13 @@ int disk_load(int n)
   {
     file = fopen(file_name, "w");
     result = fwrite(numbers, sizeof(int), size, file);
-    if (fclose(file) != 0) {return -1;}
+    if (fclose(file) != 0)
+    {
+      return -1;
+    }
 
-    file = fopen(file_name, "r");
-    if (fclose(file) != 0) {return -1;}
+    // file = fopen(file_name, "r");
+    // if (fclose(file) != 0) {return -1;}
   }
 
   return 0;
@@ -72,11 +75,11 @@ int main(void)
   clock_t calct;
 
   t = clock();
-  memory_load(100000000);
+  memory_load(400000000);
   memt = clock() - t;
-  disk_load(100000);
+  disk_load(80000);
   diskt = clock() - t - memt;
-  matrix_mult(800);
+  matrix_mult(830);
   calct = clock() - t - memt - diskt;
   t = clock() - t;
   double time_taken_mem = ((double)memt) / CLOCKS_PER_SEC;
