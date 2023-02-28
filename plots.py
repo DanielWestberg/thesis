@@ -10,7 +10,7 @@ import json
 # plt.rcParams["figure.figsize"] = [7.50, 3.50]
 # plt.rcParams["figure.autolayout"] = True
 
-path = '/home/dwdd/thesis/output/20230217_125834'
+path = '/home/dwdd/thesis/output/20230227_134402'
 chrome_path = '/usr/bin/google-chrome %s'
 
 for dir in os.walk(path):
@@ -19,33 +19,64 @@ for dir in os.walk(path):
 # fig, axs = plt.subplots(6)
 # fig.suptitle('Vertically stacked subplots')
 
-vmstat_headers = ['Run', 'runnable processes', 'ps blckd wait for I/O', 'tot swpd', 'free', 'buff', 'cache', 'mem swapped in/s', 'mem swapped out/s', 'from block device (KiB/s)', 'to block device (KiB/s)', 'interrupts/s', 'cxt switch/s', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time', 'Date', 'Time']
+runtime_headers = ['Run', 'Memory time', 'Disk time', 'Calc time', 'Tot time src', 'Tot time observed']
+runtime_df = pd.read_csv(f'{path}/runtimes.csv', verbose=True, names=runtime_headers)
+runtime_df.set_index('Run')
+# runtime_df.plot()
+runtime_df.plot(kind='line', x='Run', y=['Memory time', 'Disk time', 'Calc time', 'Tot time src', 'Tot time observed'], xticks=runtime_df['Run'])
+# runtime_df.plot(ax=axs[5])
+plt.xlabel('run iteration')
+plt.ylabel('runtime')
+plt.title('thesis_app runtimes')
+
+vmstat_headers = ['Run', 'runnable processes', 'ps blckd wait for I/O', 'tot swpd used', 'free', 'buff', 'cache', 'mem swapped in/s', 'mem swapped out/s', 'from block device (KiB/s)', 'to block device (KiB/s)', 'interrupts/s', 'cxt switch/s', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time', 'Date', 'Time']
 vmstat_df = pd.read_csv(f'{path}/vmstat.csv', verbose=True, names=vmstat_headers)
 vmstat_df['Time'] = pd.to_datetime(vmstat_df['Time'])
 vmstat_df['seconds'] = vmstat_df['Time'].dt.strftime("%M:%S")
 vmstat_df.set_index('seconds')
 # vmstat_df.plot()
 # vmstat_df.plot(ax=axs[0])
-vmstat_ax1 = vmstat_df.plot(kind='line', x='seconds', y=['free', 'cache'])
+vmstat_ax1 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'free', 'buff', 'cache'])
 vmstat_ax1.set_xticks(vmstat_df.index)
 vmstat_ax1.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
 plt.xlabel('time')
 plt.ylabel('y')
-plt.title('vmstat -t -w 1')
+plt.title('vmstat -t -w 1 Memory')
 # plt.xticks(fontsize=9, rotation=90)
-vmstat_ax2 = vmstat_df.plot(kind='line', x='seconds', y=['buff'])
+vmstat_ax2 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'runnable processes', 'ps blckd wait for I/O'])
 vmstat_ax2.set_xticks(vmstat_df.index)
 vmstat_ax2.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
 plt.xlabel('time')
 plt.ylabel('y')
-plt.title('vmstat -t -w 1')
+plt.title('vmstat -t -w 1 Processes')
 # plt.xticks(fontsize=9, rotation=90)
-vmstat_ax3 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'runnable processes', 'ps blckd wait for I/O', 'tot swpd', 'mem swapped in/s', 'mem swapped out/s', 'from block device (KiB/s)', 'to block device (KiB/s)', 'interrupts/s', 'cxt switch/s', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time'])
+vmstat_ax3 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'tot swpd used', 'mem swapped in/s', 'mem swapped out/s'])
 vmstat_ax3.set_xticks(vmstat_df.index)
 vmstat_ax3.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
 plt.xlabel('time')
 plt.ylabel('y')
-plt.title('vmstat -t -w 1')
+plt.title('vmstat -t -w 1 Swap')
+# plt.xticks(fontsize=9, rotation=90)
+vmstat_ax4 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'from block device (KiB/s)', 'to block device (KiB/s)'])
+vmstat_ax4.set_xticks(vmstat_df.index)
+vmstat_ax4.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
+plt.xlabel('time')
+plt.ylabel('y')
+plt.title('vmstat -t -w 1 I/O')
+# plt.xticks(fontsize=9, rotation=90)
+vmstat_ax5 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'interrupts/s', 'cxt switch/s'])
+vmstat_ax5.set_xticks(vmstat_df.index)
+vmstat_ax5.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
+plt.xlabel('time')
+plt.ylabel('y')
+plt.title('vmstat -t -w 1 System')
+# plt.xticks(fontsize=9, rotation=90)
+vmstat_ax6 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time'])
+vmstat_ax6.set_xticks(vmstat_df.index)
+vmstat_ax6.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
+plt.xlabel('time')
+plt.ylabel('y')
+plt.title('vmstat -t -w 1 CPU')
 # plt.xticks(fontsize=9, rotation=90)
 
 mpstat0_headers = ['Run', 'Time', 'CPU', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle']
@@ -153,16 +184,6 @@ plt.xlabel('time')
 plt.ylabel('y')
 plt.title('iostat -txd -p sda 1')
 # plt.xticks(fontsize=9, rotation=90)
-
-runtime_headers = ['Run', 'Memory time', 'Disk time', 'Calc time', 'Tot time']
-runtime_df = pd.read_csv(f'{path}/runtimes.csv', verbose=True, names=runtime_headers)
-runtime_df.set_index('Run')
-# runtime_df.plot()
-runtime_df.plot(kind='line', x='Run', y=['Memory time', 'Disk time', 'Calc time', 'Tot time'], xticks=runtime_df['Run'])
-# runtime_df.plot(ax=axs[5])
-plt.xlabel('run iteration')
-plt.ylabel('runtime')
-plt.title('thesis_app runtimes')
 
 plt.show()
 
