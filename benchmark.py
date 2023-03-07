@@ -95,6 +95,9 @@ def main(argv):
 
 
 
+    perf_stat_headers = ['CPU','metric','unit','something','#','1.000','whacka','doodle','dooo']
+    perf_stat_df = pd.read_csv(f'{path}/1/perf_stat.csv', verbose=True, names=perf_stat_headers)
+
 
     # cpu_freq = 2.6 * 10^9
     # T = 1 / cpu_freq
