@@ -16,19 +16,21 @@ void memory_load(int n)
 int disk_load(int n)
 {
   FILE *file;
-  int size = 5;
-  int numbers[size];
-  char file_name[] = "numbers.bin";
+  // int size = 5;
+  // int numbers[] = {10, 10, 10, 10, 10};
+  // char file_name[] = "numbers.bin";
+  char file_name[] = "file.txt";
   size_t result;
 
-  for (int i = 0; i < size; i++)
-  {
-    numbers[i] = 10;
-  }
+  // for (int i = 0; i < size; i++)
+  // {
+  //   numbers[i] = 10;
+  // }
   for (int i = 0; i < n; i++)
   {
     file = fopen(file_name, "w");
-    result = fwrite(numbers, sizeof(int), size, file);
+    fprintf(file, "Write to disk...\n");
+    // result = fwrite(numbers, sizeof(int), size, file);
     if (fclose(file) != 0)
     {
       return -1;
@@ -77,9 +79,10 @@ int main(void)
   t = clock();
   memory_load(400000000);
   memt = clock() - t;
-  disk_load(80000);
+  disk_load(10000);
   diskt = clock() - t - memt;
   matrix_mult(830);
+  // matrix_mult(2);
   calct = clock() - t - memt - diskt;
   t = clock() - t;
   double time_taken_mem = ((double)memt) / CLOCKS_PER_SEC;
