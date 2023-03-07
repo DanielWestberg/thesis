@@ -2,21 +2,25 @@
 
 APPNAME="thesis_app"
 
-ITERATIONS=6
+ITERATIONS=1
 
-ALLCPUS=0
+ALLCPUS=1
 # MEMAPPITER=2
 # DISKAPPITER=3
 # CPUAPPITER=4
+
+NOOBSERVEITER=0
 
 MEMSTRESSITER=2
 DISKSTRESSITER=3
 CPUSTRESSITER=4
 IOSTRESSITER=5
-NOOBSERVEITER=6
 
-STRESSISOLCPU=3
-APPISOLCPU=3
+STRESSISOLCPU=2
+APPISOLCPU=2
+
+# Get number of CPUs
+NCPUS=$(lscpu | grep --max-count=1 "CPU(s)" | awk '{print $2}')
 
 # Store current time as a variable and create a new dir
 OUTPUT_DIR="output"
@@ -54,59 +58,62 @@ do
     fi
 
     # Isolate CPU's
-    if [[ $ALLCPUS = 1 ]]
-    then
-        echo -n "Using all CPU's 0-3..."
-        sudo ./cgroup -0123 all &
-        echo "done"
-    else
-        echo -n "Isolating all processes to CPU's 0-2..."
-        sudo ./cgroup -012 all &
-        echo "done"
+    # if [[ $ALLCPUS = 1 ]]
+    # then
+    #     echo -n "Using all CPU's 0-3..."
+    #     sudo ./cgroup -0123 all &
+    #     echo "done"
+    # else
+    #     echo -n "Isolating all processes to CPU's 0-2..."
+    #     sudo ./cgroup -012 all &
+    #     echo "done"
         
-        echo -n "Isolating stress processes to CPU $STRESSISOLCPU..."
-        for pid in $(ps ax | grep stress | awk '{print $1}'); do taskset -pc $STRESSISOLCPU $pid ; done
-        echo "done"
-    fi
+    #     echo -n "Isolating stress processes to CPU $STRESSISOLCPU..."
+    #     for pid in $(ps ax | grep stress | awk '{print $1}'); do taskset -pc $STRESSISOLCPU $pid ; done
+    #     echo "done"
+    # fi
 
 
     if [[ $i != $NOOBSERVEITER ]]
     then
         # Start observability tools, store output in new dir
         echo -n "Starting observability tools..."
-        vmstat -t -w 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt &
-        VMSTATPID=$!
-        mpstat -P 0 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat0_raw.txt &
-        MPSTAT0PID=$!
-        mpstat -P 1 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat1_raw.txt &
-        MPSTAT1PID=$!
-        mpstat -P 2 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat2_raw.txt &
-        MPSTAT2PID=$!
-        mpstat -P 3 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat3_raw.txt &
-        MPSTAT3PID=$!
-        pidstat 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt &
-        PIDSTATPID=$!
-        iostat -txd -p sda 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_xd_raw.txt &
-        IOSTATPID=$!
-        iostat -td -p sda 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_d_raw.txt &
-        IOSTATDPID=$!
-        sar -m ALL 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/sar_m_raw.txt &
-        SARMPID=$!
-        sar -n ALL 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/sar_n_raw.txt &
-        SARNPID=$!
+        # vmstat -t -w 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt &
+        # VMSTATPID=$!
+        # mpstat -P 0 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat0_raw.txt &
+        # MPSTAT0PID=$!
+        # mpstat -P 1 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat1_raw.txt &
+        # MPSTAT1PID=$!
+        # mpstat -P 2 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat2_raw.txt &
+        # MPSTAT2PID=$!
+        # mpstat -P 3 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/mpstat3_raw.txt &
+        # MPSTAT3PID=$!
+        # pidstat 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt &
+        # PIDSTATPID=$!
+        # iostat -txd -p sda 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_xd_raw.txt &
+        # IOSTATPID=$!
+        # iostat -td -p sda 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/iostat_d_raw.txt &
+        # IOSTATDPID=$!
+        # sar -m ALL 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/sar_m_raw.txt &
+        # SARMPID=$!
+        # sar -n ALL 1 > $OUTPUT_DIR/$CURRENT_TIME/$i/sar_n_raw.txt &
+        # SARNPID=$!
 
-        if [[ $ALLCPUS = 1 ]]
-        then
-            perf sched record -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data &
-            PERFSCHEDPID=$!
-            perf record -F max -a -g -s -T -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data &
-            PERFPID=$!
-        else
-            perf sched record -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data &
-            PERFSCHEDPID=$!
-            perf record -F max -g -s -T -C $APPISOLCPU -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data &
-            PERFPID=$!
-        fi
+        # if [[ $ALLCPUS = 1 ]]
+        # then
+            # perf stat record -d -d -d -v -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.data &
+            # PERFSTATPID=$!
+            # perf record -a -g -s -T -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data &
+            # PERFPID=$!
+        # else
+            # perf stat record -d -d -d -v -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.data &
+            # PERFSTATPID=$!
+            # perf record -a -g -s -T -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data &
+            # perf record -g -s -T -C $APPISOLCPU -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data &
+            # PERFPID=$!
+        # fi
+        perf sched record -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data &
+        PERFSCHEDPID=$!
         
         echo "done"
     else
@@ -131,21 +138,29 @@ do
     if [[ $ALLCPUS = 1 ]]
     then
         echo -n "Running application on all CPU's..."
-        sudo make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
-        # sudo perf stat -o $OUTPUT_DIR/$CURRENT_TIME/$i/perfstat.txt make run > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
+        # sudo make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
+        # sudo perf sched record -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+        sudo perf stat -a --per-core -d -d -d -v record -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.data make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
     else
         echo -n "Running application on CPU $APPISOLCPU..."
-        sudo taskset -c $APPISOLCPU make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+        # sudo perf record -g -s -T -C $APPISOLCPU -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf.data make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+        # sudo perf sched record -o $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data taskset -c $APPISOLCPU make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+        sudo perf stat -o $OUTPUT_DIR/$CURRENT_TIME/$i/perfstat.txt make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
+        # sudo taskset -c $APPISOLCPU make run_thesis_app > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
         # sudo taskset -c $APPISOLCPU make -C ../confd-basic/confd-basic-8.0.2.linux.x86_64/northbound-perf/ clean all start > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt 
     fi
 
     echo "done"
 
     # Stop observability tools
-    echo -n "Stopping observability tools..."
-    kill $PERFPID $PERFSCHEDPID $VMSTATPID $MPSTAT0PID $MPSTAT1PID $MPSTAT2PID $MPSTAT3PID $PIDSTATPID $IOSTATPID $DSTATPID $SARMPID $SARNPID $IOSTATDPID
-    echo "done"
-    
+    if [[ $i != $NOOBSERVEITER ]]
+    then
+        echo -n "Stopping observability tools..."
+        kill $PERFPID $PERFSCHEDPID $VMSTATPID $MPSTAT0PID $MPSTAT1PID $MPSTAT2PID $MPSTAT3PID $PIDSTATPID $IOSTATPID $DSTATPID $SARMPID $SARNPID $IOSTATDPID
+        # kill $PERFPID $PERFSTATPID $VMSTATPID $MPSTAT0PID $MPSTAT1PID $MPSTAT2PID $MPSTAT3PID $PIDSTATPID $IOSTATPID $DSTATPID $SARMPID $SARNPID $IOSTATDPID
+        echo "done"
+    fi
+
     echo "Stopping stress..."
     for pid in $(pidof stress); do kill $pid ; done
     echo "done"
@@ -159,17 +174,37 @@ do
 
     sleep 1
     # Generate flamegraph
-    echo -n "Generating flame graph..."
-    cd $OUTPUT_DIR/$CURRENT_TIME/$i/
-    sudo perf script -i perf.data | ../../../../FlameGraph/stackcollapse-perf.pl > ../../../../FlameGraph/out.perf-folded
-    cd ../../../
-    ../FlameGraph/flamegraph.pl ../FlameGraph/out.perf-folded > ../FlameGraph/perf.svg
-    cp ../FlameGraph/perf.svg $OUTPUT_DIR/$CURRENT_TIME/$i/
-    echo "done"
+    if [[ $i != $NOOBSERVEITER ]]
+    then
+        echo -n "Generating flame graph..."
+        cd $OUTPUT_DIR/$CURRENT_TIME/$i/
+        sudo perf script -i perf.data | ../../../../FlameGraph/stackcollapse-perf.pl > ../../../../FlameGraph/out.perf-folded
+        cd ../../../
+        ../FlameGraph/flamegraph.pl ../FlameGraph/out.perf-folded > ../FlameGraph/perf.svg
+        cp ../FlameGraph/perf.svg $OUTPUT_DIR/$CURRENT_TIME/$i/
+        echo "done"
+    fi
 
     echo -n "Generating scheduling time history..."
-    sudo perf sched timehist -MVw -i $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw.txt
+    sudo perf sched timehist -MVwn -i $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw.txt
     sudo perf sched timehist -s -i $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt
+
+    for (( CPU=0; CPU<$NCPUS; CPU++ ))
+    do
+        sudo perf sched timehist -MVwn --cpu=$CPU -i $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw_cpu$CPU.txt
+        sudo perf sched timehist -s --cpu=$CPU -i $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt
+        sudo perf sched timehist -MVwnI --cpu=$CPU -i $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw_idle_cpu$CPU.txt
+
+        tail -n +6 $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | egrep -v "Terminated tasks|Idle stats|idle for|Total number|Total run|Total scheduling" | awk '{$1=$1;print}' | sed 's/\s\+/,/g' | grep . > $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.csv
+    done
+    
+    sudo perf sched timehist -i $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | grep "thesis_app" > $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw_thesis_app.txt
+    sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw_thesis_app.txt | awk '!seen[$2]++' | awk '{print $2}' | awk 'BEGIN { ORS = " " } { print }' > $OUTPUT_DIR/$CURRENT_TIME/$i/cpus_used.csv
+    echo "done"
+
+    # Report perf stat
+    echo -n "Generating perf stat report..."
+    sudo perf stat report -i $OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.data > $OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt
     echo "done"
 
     # Format output data to csv
@@ -230,9 +265,40 @@ do
         # Format app output
         egrep -v "./|gcc" < $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt > $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
         sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+        sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/cpus_used.csv
+        # App time all CPUs
         cat $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep $APPNAME | awk -v N=4 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+        # Total time all CPUs
+        cat $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "Total run time" | awk -v N=5 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+        # App time per CPU
+        if [[ $ALLCPUS = 1 ]]
+        then
+            for (( CPU=0; CPU<$NCPUS; CPU++ ))
+            do
+                cat $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep $APPNAME | awk -v N=4 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+            done
+        else
+            for (( CPU=0; CPU<$NCPUS; CPU++ ))
+            do
+                if [[ $APPISOLCPU = $CPU ]]
+                then
+                    cat $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep $APPNAME | awk -v N=4 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+                else
+                    echo 0 | xargs -I {} sudo sed -i -e 's/$/,{}/' $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+                fi
+            done
+        fi
+        # Total time per CPU
+        for (( CPU=0; CPU<$NCPUS; CPU++ ))
+        do
+            cat $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep -w "Total run time" | awk -v N=5 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+        done
+        # Idle time per CPU
+        cat $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "idle for" | awk -v N=5 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+        cat $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "idle for" | awk -v N=8 '{print $N}' | rev | cut -c3- | rev | xargs -I {} sudo sed -i -e 's/$/,{}/' $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
         # Append to file containing all iterations
         sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv >> $OUTPUT_DIR/$CURRENT_TIME/runtimes.csv
+        sudo cat $OUTPUT_DIR/$CURRENT_TIME/$i/cpus_used.csv >> $OUTPUT_DIR/$CURRENT_TIME/cpus_used.csv
     fi
 
     # Append to file containing all iterations
@@ -250,11 +316,10 @@ do
 done
 
 echo -n "Resetting CPU isolations..."
-sudo ./cgroup -r &
+# sudo ./cgroup -r &
 echo "done"
 
-
-
+python3 ./benchmark.py $CURRENT_TIME $NCPUS
 
 
 
