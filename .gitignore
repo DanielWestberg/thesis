@@ -1,4 +1,5 @@
 output/
+.vscode/
 *.txt
 *.bin
 *.data
