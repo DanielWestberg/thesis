@@ -1,0 +1,7 @@
+{
+  "process_name": "thesis_app",
+  "app_path": "./",
+  "command": "thesis_app_cmd",
+  "noise": "none",
+  "cpu_isolation": 1
+}

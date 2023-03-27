@@ -17,30 +17,15 @@ def main(argv):
         runtime_headers = ['Run', 'Memory time', 'Disk time', 'Calc time', 'App time src', 'App time observed all cpus', 'Tot time observed all cpus', 'App time observed CPU 0', 'App time observed CPU 1', 'App time observed CPU 2', 'App time observed CPU 3', 'Tot time observed CPU 0', 'Tot time observed CPU 1', 'Tot time observed CPU 2', 'Tot time observed CPU 3', 'Idle time CPU 0', 'Idle time CPU 1', 'Idle time CPU 2', 'Idle time CPU 3', 'Idle % CPU 0', 'Idle % CPU 1', 'Idle % CPU 2', 'Idle % CPU 3']
     runtime_df = pd.read_csv(f'{path}/runtimes.csv', verbose=True, names=runtime_headers)
     runtime_df.set_index('Run')
-
-    perf_sched_summary_cpu0_headers = ['process', 'parent', 'sched-in', 'run-time', 'min-run', 'avg-run', 'max-run', 'stddev' ,'migrations', 'NaN']
-    perf_sched_summary_cpu0_df = pd.read_csv(f'{path}/1/perf_sched_summary_cpu0.csv', verbose=True, names=perf_sched_summary_cpu0_headers)
-    aggregation_functions = {'process': 'first', 'parent': 'first', 'sched-in': 'sum', 'run-time': 'sum', 'min-run': 'min', 'avg-run': 'mean', 'max-run': 'max', 'stddev': 'mean'}
-    perf_sched_summary_cpu0_df_new = perf_sched_summary_cpu0_df.groupby(perf_sched_summary_cpu0_df['process'], as_index=False).aggregate(aggregation_functions)
-    perf_sched_summary_cpu0_df_new = perf_sched_summary_cpu0_df_new.sort_values(by=['run-time', 'sched-in'], ascending=False)
-
-    perf_sched_summary_cpu1_headers = ['process', 'parent', 'sched-in', 'run-time', 'min-run', 'avg-run', 'max-run', 'stddev' ,'migrations', 'NaN']
-    perf_sched_summary_cpu1_df = pd.read_csv(f'{path}/1/perf_sched_summary_cpu1.csv', verbose=True, names=perf_sched_summary_cpu1_headers)
-    aggregation_functions = {'process': 'first', 'parent': 'first', 'sched-in': 'sum', 'run-time': 'sum', 'min-run': 'min', 'avg-run': 'mean', 'max-run': 'max', 'stddev': 'mean'}
-    perf_sched_summary_cpu1_df_new = perf_sched_summary_cpu1_df.groupby(perf_sched_summary_cpu1_df['process'], as_index=False).aggregate(aggregation_functions)
-    perf_sched_summary_cpu1_df_new = perf_sched_summary_cpu1_df_new.sort_values(by=['run-time', 'sched-in'], ascending=False)
-
-    # perf_sched_summary_cpu2_headers = ['process', 'parent', 'sched-in', 'run-time', 'min-run', 'avg-run', 'max-run', 'stddev' ,'migrations', 'NaN']
-    # perf_sched_summary_cpu2_df = pd.read_csv(f'{path}/1/perf_sched_summary_cpu2.csv', verbose=True, names=perf_sched_summary_cpu2_headers)
-    # aggregation_functions = {'process': 'first', 'parent': 'first', 'sched-in': 'sum', 'run-time': 'sum', 'min-run': 'min', 'avg-run': 'mean', 'max-run': 'max', 'stddev': 'mean'}
-    # perf_sched_summary_cpu2_df_new = perf_sched_summary_cpu2_df.groupby(perf_sched_summary_cpu2_df['process'], as_index=False).aggregate(aggregation_functions)
-    # perf_sched_summary_cpu2_df_new = perf_sched_summary_cpu2_df_new.sort_values(by=['run-time', 'sched-in'], ascending=False)
-
-    # perf_sched_summary_cpu3_headers = ['process', 'parent', 'sched-in', 'run-time', 'min-run', 'avg-run', 'max-run', 'stddev' ,'migrations', 'NaN']
-    # perf_sched_summary_cpu3_df = pd.read_csv(f'{path}/1/perf_sched_summary_cpu3.csv', verbose=True, names=perf_sched_summary_cpu3_headers)
-    # aggregation_functions = {'process': 'first', 'parent': 'first', 'sched-in': 'sum', 'run-time': 'sum', 'min-run': 'min', 'avg-run': 'mean', 'max-run': 'max', 'stddev': 'mean'}
-    # perf_sched_summary_cpu3_df_new = perf_sched_summary_cpu3_df.groupby(perf_sched_summary_cpu3_df['process'], as_index=False).aggregate(aggregation_functions)
-    # perf_sched_summary_cpu3_df_new = perf_sched_summary_cpu3_df_new.sort_values(by=['run-time', 'sched-in'], ascending=False)
+    
+    perf_sched_summary_cpu_headers = ['process', 'parent', 'sched-in', 'run-time', 'min-run', 'avg-run', 'max-run', 'stddev' ,'migrations', 'NaN']
+    perf_sched_summary_cpu_dfs = []
+    perf_sched_summary_cpu_dfs_new = []
+    for i in range(n_cpus):
+        perf_sched_summary_cpu_dfs.append(pd.read_csv(f'{path}/1/perf_sched_summary_cpu{i}.csv', verbose=True, names=perf_sched_summary_cpu_headers))
+        aggregation_functions = {'process': 'first', 'parent': 'first', 'sched-in': 'sum', 'run-time': 'sum', 'min-run': 'min', 'avg-run': 'mean', 'max-run': 'max', 'stddev': 'mean'}
+        perf_sched_summary_cpu_dfs_new.append(perf_sched_summary_cpu_dfs[i].groupby(perf_sched_summary_cpu_dfs[i]['process'], as_index=False).aggregate(aggregation_functions))
+        perf_sched_summary_cpu_dfs_new[i] = perf_sched_summary_cpu_dfs_new[i].sort_values(by=['run-time', 'sched-in'], ascending=False)
 
     pidstat_mem_df = []
     if (os.path.isfile(f'{path}/pidstat_mem.csv')):
@@ -236,7 +221,7 @@ def main(argv):
         with_stalls = cycles*Ts[cpus[0]]
         slowdown = (time/ideal - 1) * 100
 
-        app_runtime_on_cpu = perf_sched_summary_cpu1_df_new.loc[perf_sched_summary_cpu1_df_new['process'].str.contains("thesis_app"), "run-time"].item() / (10**3)
+        app_runtime_on_cpu = perf_sched_summary_cpu_dfs_new[cpus[0]].loc[perf_sched_summary_cpu_dfs_new[cpus[0]]['process'].str.contains("thesis_app"), "run-time"].item() / (10**3)
 
         print("\n-------- CPU --------")
         print(f"Theoretical CPU time:       {with_stalls:.2f}")
@@ -246,7 +231,6 @@ def main(argv):
         print(f"Diff time wall & ideal:     {(time-ideal):.2f} seconds")
         print(f"Slowdown:                   {slowdown:.2f}%")
         print(f"CPU freq:                   {cpu_freqs[0] / (10**9):.2f} GHz")
-        print(f"CPU score:                  {((ideal/time)*100):.2f}")
 
 
         # CT_TOT += CTs_ideal[cpus[0]]
@@ -270,7 +254,6 @@ def main(argv):
     mem_used = 1
     mem_util = mem_used / mem_total * 100
     print("\n-------- Memory usage --------")
-    print(f"Memory score:         {(100 - mem_util):.2f}")
 
 
     # print("\n-------- Cache performance --------")
@@ -343,7 +326,6 @@ def main(argv):
 
     print("\n-------- CPU utilization --------")
 
-
     tot_cpu_utils = [0 for i in range(n_cpus)]
     app_cpu_utils = [0 for i in range(n_cpus*2)]
     tot_plus_idle = [0 for i in range(n_cpus)]
@@ -380,15 +362,12 @@ def main(argv):
     #     print(f"Total time CPU{i}:  {'{0:.2f}'.format(tot_plus_idle[i])} seconds")
     
     
+    cpu_util_score = app_cpu_utils[cpus[0] + n_cpus] - row1_runtime[f'Idle % CPU {cpus[0]}'].item()
+
     print("\nTop five processes used during app runtime:")
-    print("\nCPU0")
-    print(perf_sched_summary_cpu0_df_new.head())
-    print("\nCPU1")
-    print(perf_sched_summary_cpu1_df_new.head())
-    # print("\nCPU2")
-    # print(perf_sched_summary_cpu2_df_new.head())
-    # print("\nCPU3")
-    # print(perf_sched_summary_cpu3_df_new.head())
+    for i in range(n_cpus):
+        print(f"\nCPU{i}")
+        print(perf_sched_summary_cpu_dfs_new[i].head())
     print()
 
 
@@ -446,6 +425,14 @@ def main(argv):
     # iostat_xd_df.set_index('seconds')
 
     # score = runtime_df['tot time src'] 
+
+
+    print("\n-------- SCORES --------")
+
+    print(f"CPU time score:         {((ideal/time)*100):.2f}")
+    print(f"CPU utilization score:  {(cpu_util_score):.2f}")
+    print(f"Memory score:           {(100 - mem_util):.2f}")
+    print()
 
 if __name__ == "__main__":
    main(sys.argv[1:])
