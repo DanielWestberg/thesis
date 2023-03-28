@@ -1,7 +1,8 @@
 {
   "process_name": "thesis_app",
   "app_path": "./",
-  "command": "thesis_app_cmd",
+  "run_command": "make run_thesis_app",
   "noise": "none",
-  "cpu_isolation": 1
+  "cpu_isolation": 1,
+  "all_cpus": "no"
 }
