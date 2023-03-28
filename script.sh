@@ -225,29 +225,24 @@ do
     sed -r 's/[,]+/./g' $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt | sed 's/\s\+/,/g' | grep $PROCESS_NAME | egrep -v "Linux|%" > $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
     sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
     
-    # if [[ $RUN_COMMAND == *"make"* ]]
-    # then
-    #     egrep -v "Entering|gcc" < $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt > $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
-    # fi        
-
     if [[ $PROCESS_NAME = "thesis_app" ]]
     then
         # Format app output
-        egrep -v "./|gcc" < $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.csv
+        egrep -v "gcc" < $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.csv
     else
         echo "0,0,0,0" > $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.csv
     fi
 
     echo "$i" > $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
     sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/app_output.csv
-    # sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
     sed -i -e "s/^/$i,/" $OUTPUT_DIR/$CURRENT_TIME/$i/cpus_used.csv
+    
     # App time all CPUs
     cat $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep $PROCESS_NAME | awk -v N=4 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
     # Total time all CPUs
     cat $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "Total run time" | awk -v N=5 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+    
     # App time per CPU
-
     for (( CPU=0; CPU<$N_CPUS; CPU++ ))
     do
         if test -z "$(cat $OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep $PROCESS_NAME)"; then
