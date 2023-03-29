@@ -135,19 +135,20 @@ do
     cat /proc/cpuinfo | grep "cpu MHz" | awk '{print $4}' > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/cpu_freq.csv
 
     # Run application
+    cd $APP_PATH
     if [[ $ALL_CPUS = 1 ]]
     then
-        echo -n "Running application on all CPU's..."
+        echo -n "Running $RUN_COMMAND in $PWD on all CPU's..."
         if [[ $RUN_COMMAND == *"make"* ]]
         then
             perf stat -a --per-core -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
             -A -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt $RUN_COMMAND > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
         else
             perf stat -a --per-core -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
-            -A -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt "$APP_PATH$COMMAND" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+            -A -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt $RUN_COMMAND > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
         fi
     else
-        echo -n "Running application on CPU $APP_ISOL_CPU..."
+        echo -n "Running $RUN_COMMAND in $PWD on CPU $APP_ISOL_CPU..."
         if [[ $RUN_COMMAND == *"make"* ]]
         then            
             perf stat \
@@ -156,7 +157,7 @@ do
         else
             perf stat \
                 -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
-                -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt taskset -c $APP_ISOL_CPU "$APP_PATH$RUN_COMMAND" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+                -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt taskset -c $APP_ISOL_CPU $RUN_COMMAND > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
         fi
     fi
     echo "done"
