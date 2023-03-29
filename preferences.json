@@ -1,8 +1,9 @@
 {
-  "process_name": "thesis_app",
-  "app_path": "./",
-  "run_command": "make run_thesis_app",
-  "noise": "none",
+  "process_name": "confd",
+  "app_path": "/home/dwdd/confd-basic/confd-basic-8.0.2.linux.x86_64/northbound-perf/",
+  "pre_run_command": "source /home/dwdd/confd-basic/confd-basic-8.0.2.linux.x86_64/confd/confdrc",
+  "run_command": "make clean all start",
+  "noise": "",
   "cpu_isolation": 1,
   "all_cpus": "no"
 }

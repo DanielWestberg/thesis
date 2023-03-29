@@ -70,31 +70,37 @@ def main(argv):
     perf_stat_cycles_headers = []
 
     if (n_cpus_used > 1):
-        perf_stat_ic_headers = ['cpu','one','ic','unit','#', 'ipc', 'ins','per','cycle']
-        perf_stat_cycles_headers = ['cpu', 'one', 'cycles','unit']
-        perf_stat_ref_cycles_headers = ['cpu','one','ref-cycles','unit']
-        perf_stat_mem_loads_headers = ['cpu','one','mem-loads','unit']
-        perf_stat_mem_stores_headers = ['cpu','one','mem-stores','unit']
-        perf_stat_cycle_stalls_total_headers = ['cpu','one','cycle-stalls','unit']
-        perf_stat_cycle_stalls_mem_any_headers = ['cpu','one','cycle-stalls','unit']
+        perf_stat_ic_headers = ['cpu','one','ic','unit','#', 'ipc', 'ins','per','cycle', 'multiplex']
+        perf_stat_cycles_headers = ['cpu', 'one', 'cycles','unit', 'multiplex']
+        perf_stat_mem_loads_headers = ['cpu','one','mem-loads','unit', 'multiplex']
+        perf_stat_mem_stores_headers = ['cpu','one','mem-stores','unit', 'multiplex']
+        perf_stat_cycle_stalls_total_headers = ['cpu','one','cycle-stalls','unit', 'multiplex']
+        perf_stat_hw_interrupts_received_headers = ['cpu','one','interrupts','unit', 'multiplex']
+        perf_stat_cache_misses_headers = ['cpu','one','cache-misses','unit','#','%', 'percentage', 'of' 'all', 'cache', 'refs', 'multiplex']
+        perf_stat_branch_misses_headers = ['cpu','one','branch-misses','unit','#','%', 'of' 'all', 'branches', 'multiplex']
+        perf_stat_page_faults_headers = ['cpu','one','page-faults','unit']
 
     else:
-        perf_stat_ic_headers = ['ic','unit','#', 'ipc', 'ins','per','cycle']
-        perf_stat_cycles_headers = ['cycles','unit']
-        perf_stat_ref_cycles_headers = ['ref-cycles','unit']
-        perf_stat_mem_loads_headers = ['mem-loads','unit']
-        perf_stat_mem_stores_headers = ['mem-stores','unit']
-        perf_stat_cycle_stalls_total_headers = ['cycle-stalls','unit']
-        perf_stat_cycle_stalls_mem_any_headers = ['cycle-stalls','unit']
+        perf_stat_ic_headers = ['ic','unit','#', 'ipc', 'ins','per','cycle', 'multiplex']
+        perf_stat_cycles_headers = ['cycles','unit', 'multiplex']
+        perf_stat_mem_loads_headers = ['mem-loads','unit', 'multiplex']
+        perf_stat_mem_stores_headers = ['mem-stores','unit', 'multiplex']
+        perf_stat_cycle_stalls_total_headers = ['cycle-stalls','unit', 'multiplex']
+        perf_stat_hw_interrupts_received_headers = ['hw_interrupts','unit', 'multiplex']
+        perf_stat_cache_misses_headers = ['cache-misses','unit','#','%', 'percentage', 'of', 'all', 'cache', 'refs', 'multiplex']
+        perf_stat_branch_misses_headers = ['branch-misses','unit','#','%', 'of', 'all', 'branches', 'multiplex']
+        perf_stat_page_faults_headers = ['page-faults','unit']
 
     perf_stat_ic_df = pd.read_csv(f'{path}/1/perf_stat_ic.csv', verbose=True, names=perf_stat_ic_headers).drop(columns=['unit', '#', 'ins', 'per', 'cycle'])
     perf_stat_cycles_df = pd.read_csv(f'{path}/1/perf_stat_cycles.csv', verbose=True, names=perf_stat_cycles_headers).drop(columns=['unit'])
-    perf_stat_ref_cycles_df = pd.read_csv(f'{path}/1/perf_stat_ref_cycles.csv', verbose=True, names=perf_stat_ref_cycles_headers).drop(columns=['unit'])
     perf_stat_mem_loads_df = pd.read_csv(f'{path}/1/perf_stat_mem_loads.csv', verbose=True, names=perf_stat_mem_loads_headers).drop(columns=['unit'])
     perf_stat_mem_stores_df = pd.read_csv(f'{path}/1/perf_stat_mem_stores.csv', verbose=True, names=perf_stat_mem_stores_headers).drop(columns=['unit'])
     perf_stat_cycle_stalls_total_df = pd.read_csv(f'{path}/1/perf_stat_cycle_stalls_total.csv', verbose=True, names=perf_stat_cycle_stalls_total_headers).drop(columns=['unit'])
-    perf_stat_cycle_stalls_mem_any_df = pd.read_csv(f'{path}/1/perf_stat_cycle_stalls_mem_any.csv', verbose=True, names=perf_stat_cycle_stalls_mem_any_headers).drop(columns=['unit'])
-        
+    perf_stat_hw_interrupts_received_df = pd.read_csv(f'{path}/1/perf_stat_hw_interrupts_received.csv', verbose=True, names=perf_stat_hw_interrupts_received_headers).drop(columns=['unit'])
+    perf_stat_cache_misses_df = pd.read_csv(f'{path}/1/perf_stat_cache_misses.csv', verbose=True, names=perf_stat_cache_misses_headers).drop(columns=['unit','#','percentage', 'of', 'all', 'cache', 'refs'])
+    perf_stat_branch_misses_df = pd.read_csv(f'{path}/1/perf_stat_branch_misses.csv', verbose=True, names=perf_stat_branch_misses_headers).drop(columns=['unit','#','of', 'all', 'branches'])
+    perf_stat_page_faults_df = pd.read_csv(f'{path}/1/perf_stat_page_faults.csv', verbose=True, names=perf_stat_page_faults_headers).drop(columns=['unit'])
+
 
     # T = 1 / cpu_freq
     Ts = [1 / cpu_freqs[i] for i in range(n_cpus)]
@@ -113,19 +119,12 @@ def main(argv):
             cycles = ''.join(cycles.split())
             cycles = int(cycles)
 
-            ref_cycles = perf_stat_ref_cycles_df.loc[perf_stat_ic_df['cpu'] == f"S0-D0-C{i}", "ref-cycles"].item()
-            ref_cycles = ''.join(ref_cycles.split())
-            ref_cycles = int(ref_cycles)
 
-            T_ref = 1 / (2.6 * 10**9)
 
             cycle_stalls_total = perf_stat_cycle_stalls_total_df.loc[perf_stat_ic_df['cpu'] == f"S0-D0-C{i}", "cycle-stalls"].item()
             cycle_stalls_total = ''.join(cycle_stalls_total.split())
             cycle_stalls_total = int(cycle_stalls_total)
 
-            cycle_stalls_mem_any = perf_stat_cycle_stalls_mem_any_df.loc[perf_stat_ic_df['cpu'] == f"S0-D0-C{i}", "cycle-stalls"].item()
-            cycle_stalls_mem_any = ''.join(cycle_stalls_mem_any.split())
-            cycle_stalls_mem_any = int(cycle_stalls_mem_any)
         
             CTs_ideal[cpus[0]] = ic * (1/ipc) * Ts[cpus[0]]
             CTs_stalls[cpus[0]] = (cycles + cycle_stalls_total) * Ts[cpus[0]]
@@ -133,16 +132,10 @@ def main(argv):
             print()
             print(f"CPU {i}")
             print(f"Theoretical time cycles:                    {cycles*Ts[cpus[0]]:.2f}")
-            print(f"Theoretical time ref cycles:                {ref_cycles*T_ref:.2f}")
             print(f"Theoretical time cycles + stalls:           {(cycles + cycle_stalls_total)*Ts[cpus[0]]:.2f}")
-            print(f"Theoretical time cycles + stalls mem:       {(cycles + cycle_stalls_mem_any)*Ts[cpus[0]]:.2f}")
-            print(f"Theoretical time ref cycles + stalls:       {(ref_cycles*T_ref + cycle_stalls_total*Ts[cpus[0]]):.2f}")
-            print(f"Theoretical time ref cycles + stalls mem:   {(ref_cycles*T_ref + cycle_stalls_mem_any*Ts[cpus[0]]):.2f}")
             print(f"Cycles:                                     {cycles}")
-            print(f"Ref cycles:                                 {ref_cycles}")
             print(f"Stall cycles:                               {cycle_stalls_total}")
             print(f"Stall cycles / cycles:                      {cycle_stalls_total / cycles}")
-            print(f"Stall cycles / ref cycles:                  {cycle_stalls_total / ref_cycles}")
             CT_TOT += CTs_ideal[cpus[0]]
 
     else:
@@ -154,19 +147,9 @@ def main(argv):
         cycles = ''.join(cycles.split())
         cycles = int(cycles)
 
-        ref_cycles = perf_stat_ref_cycles_df["ref-cycles"].item()
-        ref_cycles = ''.join(ref_cycles.split())
-        ref_cycles = int(ref_cycles)
-
-        T_ref = 1 / (2.6 * 10**9)
-
         cycle_stalls_total = perf_stat_cycle_stalls_total_df["cycle-stalls"].item()
         cycle_stalls_total = ''.join(cycle_stalls_total.split())
         cycle_stalls_total = int(cycle_stalls_total)
-
-        cycle_stalls_mem_any = perf_stat_cycle_stalls_mem_any_df["cycle-stalls"].item()
-        cycle_stalls_mem_any = ''.join(cycle_stalls_mem_any.split())
-        cycle_stalls_mem_any = int(cycle_stalls_mem_any)
 
         ipc = perf_stat_ic_df["ipc"].item()
 
@@ -179,26 +162,38 @@ def main(argv):
 
         app_runtime_on_cpu = perf_sched_summary_cpu_dfs_new[cpus[0]].loc[perf_sched_summary_cpu_dfs_new[cpus[0]]['process'].str.contains("thesis_app"), "run-time (ms)"].item() / (10**3)
 
+        branch_misses = perf_stat_branch_misses_df.iloc[[0]]['branch-misses'].item()
+        branch_misses_percent = perf_stat_branch_misses_df.iloc[[0]]['%'].item()
+        
         print("\n-------- CPU --------")
-        print(f"Theoretical CPU time incl. mem stalls:  {t_with_stalls:.2f}")
-        print(f"Theoretical ideal CPU time:             {t_ideal:.2f}")
+        print(f"Theoretical CPU time incl. mem stalls:  {t_with_stalls:.2f} seconds")
+        print(f"Theoretical ideal CPU time:             {t_ideal:.2f} seconds")
         print(f"Measured CPU time:                      {app_runtime_on_cpu:.2f} seconds")
         print(f"Wall time:                              {time:.2f} seconds")
         print(f"Diff time wall & ideal:                 {(time-t_ideal):.2f} seconds")
-        print(f"Slowdown:                               {slowdown:.2f}%")
+        print(f"Slowdown wall vs ideal:                 {slowdown:.2f}%")
         print(f"CPU freq:                               {cpu_freqs[0] / (10**9):.2f} GHz")
+        print(f"Branch misses:                          {branch_misses}     ({branch_misses_percent} of total branch instructions)")
 
 
+    
     mem_total = 1
     mem_used = 1
     mem_util = mem_used / mem_total * 100
+    cache_misses = perf_stat_cache_misses_df.iloc[[0]]['cache-misses'].item()
+    cache_misses_percent = perf_stat_cache_misses_df.iloc[[0]]['%'].item()
+    mem_stores = perf_stat_mem_stores_df.iloc[[0]]['mem-stores'].item()
+    mem_loads = perf_stat_mem_loads_df.iloc[[0]]['mem-loads'].item()
+    page_faults = perf_stat_page_faults_df.iloc[[0]]['page-faults'].item()
     
     print("\n-------- Memory usage --------")
-
+    print(f"Cache misses:                           {cache_misses}      ({cache_misses_percent}% of total cache references)")
+    print(f"Memory stores:                          {mem_stores}")
+    print(f"Memory loads:                           {mem_loads}")
+    print(f"Page faults:                            {page_faults}")
     # l1_size = 32 * (10**3)
     # l2_size = 256 * (10**3)
     # l3_size = 4096 * (10**3)
-    # page_faults = perf_stat_page_faults_df['page-faults'].item()
     # page_faults = ''.join(page_faults.split())
     # page_faults = int(page_faults)
     # L1_dcache_loads = perf_stat_L1_dcache_loads_df['L1-dcache-loads'].item()
@@ -299,12 +294,16 @@ def main(argv):
         print(perf_sched_summary_cpu_dfs_new[i].head())
     print()
 
+    print("\n-------- I/O --------")
+    print(f"Number of hardware interrupts:          {perf_stat_hw_interrupts_received_df['hw_interrupts'].item()}")
+
     print("\n-------- SCORES --------")
 
-    print(f"CPU time score with mem stalls:     {((t_ideal/time)*100):.2f}")
-    print(f"CPU time score without mem stalls:  {((t_with_stalls/time)*100):.2f}")
-    print(f"CPU utilization score:              {(cpu_util_score):.2f}")
-    print(f"Memory score:                       {(100 - mem_util):.2f}")
+    print(f"CPU time score (without mem stalls):    {((t_ideal/time)*100):.2f}")
+    print(f"CPU time score (with mem stalls):       {((t_with_stalls/time)*100):.2f}")
+    print(f"CPU utilization score:                  {(cpu_util_score):.2f}")
+    print(f"Memory score:                           not yet implemented")
+    # print(f"Memory score:                           {(100 - mem_util):.2f}")
     print()
 
 if __name__ == "__main__":
