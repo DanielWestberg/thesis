@@ -1,9 +1,0 @@
-{
-  "process_name": "confd",
-  "app_path": "/home/dwdd/confd-basic/confd-basic-8.0.2.linux.x86_64/confd//bin/",
-  "pre_run_command": "",
-  "run_command": "netconf-console --edit-config data.xml",
-  "noise": "",
-  "cpu_isolation": 1,
-  "all_cpus": "yes"
-}

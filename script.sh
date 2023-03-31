@@ -3,17 +3,19 @@
 ITERATIONS=1
 DISABLE_OBSERVE_ITER=0
 
-# Get preferences
-PREFERENCES=$(jq '.' preferences.json)
-PROCESS_NAME=$(echo $PREFERENCES | jq .process_name | tr -d '"')
-APP_PATH=$(echo $PREFERENCES | jq '.app_path' | tr -d '"')
-PRE_RUN_COMMAND=$(echo $PREFERENCES | jq '.pre_run_command' | tr -d '"')
-RUN_COMMAND=$(echo $PREFERENCES | jq '.run_command' | tr -d '"')
-NOISE_TYPE=$(echo $PREFERENCES | jq '.noise' | tr -d '"')
-APP_ISOL_CPU=$(echo $PREFERENCES | jq '.cpu_isolation')
-ALL_CPUS=$(echo $PREFERENCES | jq '.all_cpus' | tr -d '"')
+# Get config
+CONFIG=$(jq '.' config.json)
+PROCESS_NAME=$(echo $CONFIG | jq .process_name | tr -d '"')
+APP_PATH=$(echo $CONFIG | jq '.app_path' | tr -d '"')
+PRE_RUN_COMMAND=$(echo $CONFIG | jq '.pre_run_command' | tr -d '"')
+RUN_COMMAND=$(echo $CONFIG | jq '.run_command' | tr -d '"')
+IS_EXECUTABLE=$(echo $CONFIG | jq '.is_executable' | tr -d '"')
+NOISE_TYPE=$(echo $CONFIG | jq '.noise' | tr -d '"')
+APP_ISOL_CPU=$(echo $CONFIG | jq '.cpu_isolation')
+ALL_CPUS=$(echo $CONFIG | jq '.all_cpus' | tr -d '"')
 
 $PRE_RUN_COMMAND
+PROCESS_PID=""
 
 # Get number of CPUs
 N_CPUS=$(lscpu | grep --max-count=1 "CPU(s)" | awk '{print $2}')
@@ -136,29 +138,47 @@ do
 
     # Run application
     cd $APP_PATH
-    if [[ $ALL_CPUS = 1 ]]
+
+    if [[ $IS_EXECUTABLE == "yes" ]]
     then
-        echo -n "Running $RUN_COMMAND in $PWD on all CPU's..."
-        if [[ $RUN_COMMAND == *"make"* ]]
+        if [[ $ALL_CPUS = 1 ]]
         then
+            echo -n "Running $RUN_COMMAND in $PWD on all CPU's. Retrieving stats for $PROCESS_NAME..."
+            # if [[ $RUN_COMMAND == *"make"* ]]
+            # then
+            #     perf stat -a --per-core -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
+            #     -A -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt $RUN_COMMAND -C $APP_PATH > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+            # else
             perf stat -a --per-core -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
             -A -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt $RUN_COMMAND > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+            # fi
         else
-            perf stat -a --per-core -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
-            -A -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt $RUN_COMMAND > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
-        fi
-    else
-        echo -n "Running $RUN_COMMAND in $PWD on CPU $APP_ISOL_CPU..."
-        if [[ $RUN_COMMAND == *"make"* ]]
-        then            
-            perf stat \
-                -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
-                -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt taskset -c $APP_ISOL_CPU $RUN_COMMAND -C $APP_PATH > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
-        else
+            echo -n "Running $RUN_COMMAND in $PWD on CPU $APP_ISOL_CPU. Retrieving stats for $PROCESS_NAME..."
+            # if [[ $RUN_COMMAND == *"make"* ]]
+            # then
+            #     perf stat \
+            #         -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
+            #         -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt taskset -c $APP_ISOL_CPU $RUN_COMMAND -C $APP_PATH > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+            # else
             perf stat \
                 -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
                 -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt taskset -c $APP_ISOL_CPU $RUN_COMMAND > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+            # fi
         fi
+    else
+        PROCESS_PID=$(pidof $PROCESS_NAME)
+        echo "Isolating $PROCESS_NAME on CPU $APP_ISOL_CPU."
+        taskset -acp $APP_ISOL_CPU $PROCESS_PID
+        echo "done"
+        sleep 1
+        echo "Retrieving stats for $PROCESS_NAME..."
+        perf stat \
+            -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
+            -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt --pid=$PROCESS_PID &
+        PERF_STAT_PID=$!
+        echo "Running $RUN_COMMAND..."
+        $RUN_COMMAND
+        kill -INT $PERF_STAT_PID
     fi
     echo "done"
     
@@ -204,16 +224,18 @@ do
         sudo perf sched timehist -MVwnI --cpu=$CPU -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw_idle_cpu$CPU.txt
 
         tail -n +6 $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | egrep -v "Terminated tasks|Idle stats|idle for|Total number|Total run|Total scheduling" | awk '{$1=$1;print}' | sed 's/\s\+/,/g' | grep . > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.csv
+        # tail -n +6 $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | egrep -v "Terminated tasks|Idle stats|idle for|Total number|Total run|Total scheduling" | awk '{$1=$1;print}' | while read -a line; do if ! [[ "${#line[@]}" == 10 ]] ; then line=("${line[@]:0}") ; fi ; done | sed 's/\s\+/,/g' | grep . > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.csv
     done
     
 
-    sudo perf sched timehist -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | grep "thesis_app" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw_thesis_app.txt
-    sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw_thesis_app.txt | awk '!seen[$2]++' | awk '{print $2}' | awk 'BEGIN { ORS = " " } { print }' > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/cpus_used.csv
+    sudo perf sched timehist -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | egrep "$PROCESS_NAME|$PROCESS_PID" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw_$PROCESS_NAME.txt
+    sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw_$PROCESS_NAME.txt | awk '!seen[$2]++' | awk '{print $2}' | awk 'BEGIN { ORS = " " } { print }' > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/cpus_used.csv
     echo "done"
 
     # Format output data to csv
     echo -n "Formatting output to csv..."
-    touch $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+    touch $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_time.csv
+    touch $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_percent.csv
     
     # Format perf stat
     sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt | grep "seconds time elapsed" | awk '{print $1}' > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat_time.csv
@@ -237,7 +259,7 @@ do
     # Format pidstat
     # sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | grep $PROCESS_NAME | egrep -v "Linux|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
     # sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
-    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt | sed 's/\s\+/,/g' | grep $PROCESS_NAME | egrep -v "Linux|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
+    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt | sed 's/\s\+/,/g' | egrep "$PROCESS_NAME|$PROCESS_PID" | egrep -v "Linux|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
     sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
     
     if [[ $PROCESS_NAME = "thesis_app" ]]
@@ -248,38 +270,37 @@ do
         echo "0,0,0,0" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.csv
     fi
 
-    echo "$i" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
     sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.csv
     sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/cpus_used.csv
     
     # App time all CPUs
-    cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep $PROCESS_NAME | awk -v N=4 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+    cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | egrep "$PROCESS_NAME|$PROCESS_PID" | awk -v N=4 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime_app_all_cpus.csv
+    
     # Total time all CPUs
-    cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "Total run time" | awk -v N=5 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+    cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "Total run time" | awk -v N=5 '{print $N}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime_tot_all_cpus.csv
     
     # App time per CPU
     for (( CPU=0; CPU<$N_CPUS; CPU++ ))
     do
-        if test -z "$(cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep $PROCESS_NAME)"; then
-            echo 0 | xargs -I {} sudo sed -i -e 's/$/,{}/' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+        if test -z "$(cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | egrep "$PROCESS_NAME|$PROCESS_PID")"; then
+            echo 0 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime_app_cpu$CPU.csv
         else
-            cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep $PROCESS_NAME | awk '{print $4}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+            cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | egrep "$PROCESS_NAME|$PROCESS_PID" | awk '{print $4}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime_app_cpu$CPU.csv
         fi
     done
 
     # Total time per CPU
     for (( CPU=0; CPU<$N_CPUS; CPU++ ))
     do
-        cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep -w "Total run time" | awk '{print $5}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+        cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep -w "Total run time" | awk '{print $5}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime_tot_cpu$CPU.csv
     done
 
     # Idle time and % per CPU
-    cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "CPU " | awk '{print $5}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l | xargs -I {} sudo sed -i -e 's/$/,{}/' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
-    cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "CPU " | awk '{print $8}' | rev | cut -c3- | rev | xargs -I {} sudo sed -i -e 's/$/,{}/' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv
+    cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "idle for" | awk '{print $5}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_time.csv
+    cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "idle for" | awk '{print $8}' | rev | cut -c3- | rev > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_percent.csv
     
     # Append to file containing all iterations
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/app_outputs.csv
-    sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/runtimes.csv
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/cpus_used.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/cpus_used.csv
 
     # Append to file containing all iterations
@@ -288,14 +309,17 @@ do
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat_mem.csv
     
     echo "done"
-    echo ""
-
+    
 done
+
+# echo -n "Resetting CPU isolations..."
+# sudo ./cgroup -r &
+# echo "done"
 
 echo -n "Resetting CPU frequencies..."
 sudo cpupower frequency-set -d 0GHz
 sudo cpupower frequency-set -u 4GHz
 echo "done"
 
-python3 ./benchmark.py $CURRENT_TIME $N_CPUS
+python3 ./score.py $CURRENT_TIME $N_CPUS
 # python3 ./plots.py $CURRENT_TIME $N_CPUS
