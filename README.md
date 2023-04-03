@@ -1,6 +1,6 @@
 # Performance evaluation tool
 
-1. Run `sudo apt install -y linux-tools-common cpupower sysstat stress`
+1. Run `sudo apt install -y linux-tools-common linux-tools-generic sysstat stress`
 2. Run `pip install -r requirements.txt`
 3. Edit `config.json` to run the script with your preferable configuration.
 4. Run `make`
