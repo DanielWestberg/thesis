@@ -13,6 +13,7 @@ IS_EXECUTABLE=$(echo $CONFIG | jq '.is_executable' | tr -d '"')
 NOISE_TYPE=$(echo $CONFIG | jq '.noise' | tr -d '"')
 APP_ISOL_CPU=$(echo $CONFIG | jq '.cpu_isolation')
 ALL_CPUS=$(echo $CONFIG | jq '.all_cpus' | tr -d '"')
+PLOT_GRAPHS=$(echo $CONFIG | jq '.plot_graphs' | tr -d '"')
 
 $PRE_RUN_COMMAND
 PROCESS_PID=""
@@ -158,7 +159,7 @@ do
         PROCESS_PID=$(pidof $PROCESS_NAME)
         EGREP_PROCESS_PID="|$PROCESS_PID"
         echo "Isolating $PROCESS_NAME on CPU $APP_ISOL_CPU."
-        taskset -acp $APP_ISOL_CPU $PROCESS_PID
+        taskset -acp $APP_ISOL_CPU $PROCESS_PID > /dev/null 2>&1
         echo "done"
         sleep 1
         echo "Retrieving stats for $PROCESS_NAME..."
@@ -183,6 +184,8 @@ do
         echo "done"
     fi
 
+    cd $SCRIPT_DIR
+
     # Stop stress
     if [ $NOISE_BOOL = 1 ]; then
         echo "Stopping stress..."
@@ -195,11 +198,8 @@ do
     if [[ $i != $DISABLE_OBSERVE_ITER ]]
     then
         echo -n "Generating flame graph..."
-        cd $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/
-        sudo perf script -i perf.data | ../../../../FlameGraph/stackcollapse-perf.pl > ../../../../FlameGraph/out.perf-folded
-        cd ../../../
-        ../FlameGraph/flamegraph.pl ../FlameGraph/out.perf-folded > ../FlameGraph/perf.svg
-        cp ../FlameGraph/perf.svg $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/
+        sudo perf script -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf.data | $SCRIPT_DIR/FlameGraph/stackcollapse-perf.pl > $SCRIPT_DIR/FlameGraph/out.perf-folded
+        $SCRIPT_DIR/FlameGraph/flamegraph.pl $SCRIPT_DIR/FlameGraph/out.perf-folded > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf.svg
         echo "done"
     fi
 
@@ -303,7 +303,7 @@ do
 done
 
 echo -n "Resetting CPU isolations..."
-sudo ./cgroup -r > /dev/null 2>&1
+sudo $SCRIPT_DIR/cgroup -r > /dev/null 2>&1
 echo "done"
 
 echo -n "Resetting CPU frequencies..."
@@ -311,5 +311,4 @@ sudo cpupower frequency-set -d 0GHz > /dev/null 2>&1
 sudo cpupower frequency-set -u 4GHz > /dev/null 2>&1
 echo "done"
 
-python3 ./score.py "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME" $N_CPUS
-# python3 ./plots.py $CURRENT_TIME $N_CPUS
+sudo -u $SUDO_USER python3 $SCRIPT_DIR/score.py "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME" $PROCESS_NAME $N_CPUS $PLOT_GRAPHS

@@ -1,17 +1,20 @@
 #!/usr/bin/python3
 import pandas as pd
+import matplotlib.pyplot as plt
 import os
 import sys
 
 def main(argv):
     path = argv[0]
-    n_cpus = int(argv[1])
+    process_name = argv[1]
+    n_cpus = int(argv[2])
+    plot_graphs = (argv[3] == "yes")
     f = open(os.devnull, 'w')
     old_stdout = sys.stdout
     sys.stdout = f
 
     # Read CSV files
-    app_output_headers = ['Run', 'Memory time', 'Disk time', 'Calc time', 'App time src',]
+    app_output_headers = ['Run', 'Memory time', 'Disk time', 'Calc time', 'App time src']
     app_output_df = pd.read_csv(f'{path}/app_outputs.csv', verbose=True, names=app_output_headers)
 
     runtime_app_all_cpus_headers = ['test']
@@ -217,12 +220,183 @@ def main(argv):
     print(f"Number of hardware interrupts:          {perf_stat_hw_interrupts_received_df['hw_interrupts'].item()}")
 
     print("\n----------------------- SCORES -----------------------")
-    print(f"CPU time score (ideal):                 {((t_ideal/time)*100):.2f}")
-    print(f"CPU time score (with mem stalls):       {((t_with_stalls/time)*100):.2f}")
-    print(f"CPU utilization score:                  {(cpu_util_score):.2f}")
+    print(f"CPU time score (ideal):                 {((t_ideal/time)*100):.2f}   (0 = bad, lots of stalls and noise. 100 = good, no stall cycles or noise)")
+    print(f"CPU time score (incl. stall cycles):    {((t_with_stalls/time)*100):.2f}   (0 = bad, lots of noise. 100 = good, no noise)")
+    print(f"CPU utilization score:                  {(cpu_util_score):.2f}   (0 = bad, CPU idle or used for other processes. 100 = good, CPU only used for app)")
     print(f"Memory score:                           not yet implemented")
     # print(f"Memory score:                           {(100 - mem_util):.2f}")
     print()
+
+    if (not plot_graphs):
+        exit()
+
+    old_stdout = sys.stdout
+    sys.stdout = f
+
+    for i, dir in enumerate(os.walk(path)):
+        if (i == 0):
+            continue
+        os.system(f'google-chrome {dir[0]}/perf.svg')
+
+    if (process_name == "thesis_app"):
+        app_output_df.set_index('Run')
+        app_output_df.plot(kind='line', x='Run', y=['Memory time', 'Disk time', 'Calc time', 'App time src'], xticks=app_output_df['Run'])
+        plt.xlabel('run iteration')
+        plt.ylabel('runtime')
+        plt.title('thesis_app runtimes')
+
+    if (os.path.isfile(f'{path}/vmstat.csv')):
+        vmstat_headers = ['Run', 'runnable processes', 'ps blckd wait for I/O', 'tot swpd used', 'free', 'buff', 'cache', 'mem swapped in/s', 'mem swapped out/s', 'from block device (KiB/s)', 'to block device (KiB/s)', 'interrupts/s', 'cxt switch/s', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time', 'Date', 'Time']
+        vmstat_df = pd.read_csv(f'{path}/vmstat.csv', verbose=True, names=vmstat_headers)
+        vmstat_df['Time'] = pd.to_datetime(vmstat_df['Time'])
+        vmstat_df['seconds'] = vmstat_df['Time'].dt.strftime("%M:%S")
+        vmstat_df.set_index('seconds')
+        vmstat_ax1 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'free', 'buff', 'cache'])
+        vmstat_ax1.set_xticks(vmstat_df.index)
+        vmstat_ax1.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('vmstat -t -w 1 Memory')
+        vmstat_ax2 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'runnable processes', 'ps blckd wait for I/O'])
+        vmstat_ax2.set_xticks(vmstat_df.index)
+        vmstat_ax2.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('vmstat -t -w 1 Processes')
+        vmstat_ax3 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'tot swpd used', 'mem swapped in/s', 'mem swapped out/s'])
+        vmstat_ax3.set_xticks(vmstat_df.index)
+        vmstat_ax3.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('vmstat -t -w 1 Swap')
+        vmstat_ax4 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'from block device (KiB/s)', 'to block device (KiB/s)'])
+        vmstat_ax4.set_xticks(vmstat_df.index)
+        vmstat_ax4.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('vmstat -t -w 1 I/O')
+        vmstat_ax5 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'interrupts/s', 'cxt switch/s'])
+        vmstat_ax5.set_xticks(vmstat_df.index)
+        vmstat_ax5.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('vmstat -t -w 1 System')
+        vmstat_ax6 = vmstat_df.plot(kind='line', x='seconds', y=['Run', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time'])
+        vmstat_ax6.set_xticks(vmstat_df.index)
+        vmstat_ax6.set_xticklabels(vmstat_df.seconds, rotation=90, fontsize=5)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('vmstat -t -w 1 CPU')
+
+    if (os.path.isfile(f'{path}/mpstat0.csv')):
+        mpstat0_headers = ['Run', 'Time', 'CPU', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle']
+        mpstat0_df = pd.read_csv(f'{path}/mpstat0.csv', verbose=True, names=mpstat0_headers)
+        mpstat0_df['Time'] = pd.to_datetime(mpstat0_df['Time'])
+        mpstat0_df['seconds'] = mpstat0_df['Time'].dt.strftime("%M:%S")
+        mpstat0_df.set_index('seconds')
+        mpstat0_ax = mpstat0_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+        mpstat0_ax.set_xticks(mpstat0_df.index)
+        mpstat0_ax.set_xticklabels(mpstat0_df.seconds, rotation=90, fontsize=9)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('mpstat -P 0 1')
+
+    if (os.path.isfile(f'{path}/mpstat1.csv')):
+        mpstat1_headers = ['Run', 'Time', 'CPU', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle']
+        mpstat1_df = pd.read_csv(f'{path}/mpstat1.csv', verbose=True, names=mpstat1_headers)
+        mpstat1_df['Time'] = pd.to_datetime(mpstat1_df['Time'])
+        mpstat1_df['seconds'] = mpstat1_df['Time'].dt.strftime("%M:%S")
+        mpstat1_df.set_index('seconds')
+        mpstat1_ax = mpstat1_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+        mpstat1_ax.set_xticks(mpstat1_df.index)
+        mpstat1_ax.set_xticklabels(mpstat1_df.seconds, rotation=90, fontsize=9)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('mpstat -P 1 1')
+
+    if (os.path.isfile(f'{path}/mpstat2.csv')):
+        mpstat2_headers = ['Run', 'Time', 'CPU', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle']
+        mpstat2_df = pd.read_csv(f'{path}/mpstat2.csv', verbose=True, names=mpstat2_headers)
+        mpstat2_df['Time'] = pd.to_datetime(mpstat2_df['Time'])
+        mpstat2_df['seconds'] = mpstat2_df['Time'].dt.strftime("%M:%S")
+        mpstat2_df.set_index('seconds')
+        mpstat2_ax = mpstat2_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+        mpstat2_ax.set_xticks(mpstat2_df.index)
+        mpstat2_ax.set_xticklabels(mpstat2_df.seconds, rotation=90, fontsize=9)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('mpstat -P 2 1')
+
+    if (os.path.isfile(f'{path}/mpstat3.csv')):
+        mpstat3_headers = ['Run', 'Time', 'CPU', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle']
+        mpstat3_df = pd.read_csv(f'{path}/mpstat3.csv', verbose=True, names=mpstat3_headers)
+        mpstat3_df['Time'] = pd.to_datetime(mpstat3_df['Time'])
+        mpstat3_df['seconds'] = mpstat3_df['Time'].dt.strftime("%M:%S")
+        mpstat3_df.set_index('seconds')
+        mpstat3_ax = mpstat3_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'])
+        mpstat3_ax.set_xticks(mpstat3_df.index)
+        mpstat3_ax.set_xticklabels(mpstat3_df.seconds, rotation=90, fontsize=9)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('mpstat -P 3 1')
+
+    if (os.path.isfile(f'{path}/pidstat.csv')):
+        pidstat_headers = ['Run', 'Time', 'UID', 'PID', '"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU', 'CPU', 'Command']
+        pidstat_df = pd.read_csv(f'{path}/pidstat.csv', verbose=True, names=pidstat_headers)
+        pidstat_df['Time'] = pd.to_datetime(pidstat_df['Time'])
+        pidstat_df['seconds'] = pidstat_df['Time'].dt.strftime("%M:%S")
+        pidstat_df.set_index('seconds')
+        pidstat_ax = pidstat_df.plot(kind='line', x='seconds', y=['Run', '"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU', 'CPU'])
+        pidstat_ax.set_xticks(pidstat_df.index)
+        pidstat_ax.set_xticklabels(pidstat_df.seconds, rotation=90, fontsize=9)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('pidstat 1 | grep thesis_app')
+
+    if (os.path.isfile(f'{path}/pidstat_mem.csv')):
+        pidstat_mem_headers = ['Run', 'Time', 'UID', 'PID', 'minflt/s', 'majflt/s', 'VSZ', 'RSS', '"%"MEM', 'Command']
+        pidstat_mem_df = pd.read_csv(f'{path}/pidstat_mem.csv', verbose=True, names=pidstat_mem_headers)
+        pidstat_mem_df['Time'] = pd.to_datetime(pidstat_mem_df['Time'])
+        pidstat_mem_df['seconds'] = pidstat_mem_df['Time'].dt.strftime("%M:%S")
+        pidstat_mem_df.set_index('seconds')
+        pidstat_mem_ax = pidstat_mem_df.plot(kind='line', x='seconds', y=['Run', 'minflt/s', 'majflt/s', 'VSZ', 'RSS', '"%"MEM'])
+        pidstat_mem_ax.set_xticks(pidstat_mem_df.index)
+        pidstat_mem_ax.set_xticklabels(pidstat_mem_df.seconds, rotation=90, fontsize=9)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('pidstat 1 -r | grep thesis_app')
+
+    if (os.path.isfile(f'{path}/iostat_d.csv')):
+        iostat_d_headers = ['Run', 'Date', 'Time', 'Device', 'tps', 'kB_read/s', 'kB_wrtn/s', 'kB_dscrded/s', 'kB_read', 'kB_wrtn', 'kB_dscrded']
+        iostat_d_df = pd.read_csv(f'{path}/iostat_d.csv', verbose=True, names=iostat_d_headers)
+        iostat_d_df['Time'] = pd.to_datetime(iostat_d_df['Time'])
+        iostat_d_df['seconds'] = iostat_d_df['Time'].dt.strftime("%M:%S")
+        iostat_d_df.set_index('Time')
+        iostat_d_ax = iostat_d_df.plot(kind='line', x='seconds', y=['tps', 'kB_read/s', 'kB_wrtn/s', 'kB_dscrded/s', 'kB_read', 'kB_wrtn', 'kB_dscrded'])
+        iostat_d_ax.set_xticks(iostat_d_df.index)
+        iostat_d_ax.set_xticklabels(iostat_d_df.seconds, rotation=90, fontsize=9)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('iostat -td -p sda 1')
+
+    if (os.path.isfile(f'{path}/iostat_xd.csv')):
+        iostat_xd_headers = ['Run', 'Date', 'Time', 'Device', 'read reqs per s', 'rkB/s', 'rrqm/s', '"%"rrqm', 'r_await', 'rareq-sz', 'write reqs per s', 'wkB/s', 'wrqm/s', '"%"wrqm',\
+                            'w_await', 'wareq-sz', 'd/s', 'dkB/s', 'drqm/s', '"%"drqm', 'd_await', 'dareq-sz', 'f/s', 'f_await', 'aqu-sz', '"%"util']
+        iostat_xd_df = pd.read_csv(f'{path}/iostat_xd.csv', verbose=True, names=iostat_xd_headers)
+        iostat_xd_df['Time'] = pd.to_datetime(iostat_xd_df['Time'])
+        iostat_xd_df['seconds'] = iostat_xd_df['Time'].dt.strftime("%M:%S")
+        iostat_xd_df.set_index('seconds')
+        iostat_xd_ax = iostat_xd_df.plot(kind='line', x='seconds', y=['read reqs per s', 'rkB/s', 'rrqm/s', '"%"rrqm', 'r_await', 'rareq-sz', 'write reqs per s'])
+        iostat_xd_ax.set_xticks(iostat_xd_df.index)
+        iostat_xd_ax.set_xticklabels(iostat_xd_df.seconds, rotation=90, fontsize=9)
+        plt.xlabel('time')
+        plt.ylabel('y')
+        plt.title('iostat -txd -p sda 1')
+    
+    sys.stdout = old_stdout
+
+    print("Plotting graphs, press Ctrl+C and Alt+Tab to clear...")
+    plt.show()
 
 if __name__ == "__main__":
    main(sys.argv[1:])
