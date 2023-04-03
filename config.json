@@ -1,10 +1,11 @@
 {
-  "process_name": "confd.smp",
+  "process_name": "thesis_app",
   "app_path": "./",
-  "pre_run_command": ". /home/dwdd/confd-basic/confd-basic-8.0.2.linux.x86_64/confd/confdrc",
-  "run_command": "netconf-console --edit-config /home/dwdd/confd-basic/confd-basic-8.0.2.linux.x86_64/northbound-perf/data.xml",
-  "is_executable": "no",
+  "pre_run_command": "",
+  "run_command": "./thesis_app",
+  "is_executable": "yes",
   "noise": "none",
   "cpu_isolation": 1,
-  "all_cpus": "no"
+  "all_cpus": "no",
+  "plot_graphs": "yes"
 }
