@@ -1,14 +1,16 @@
 #!/usr/bin/python3
 import pandas as pd
-import numpy as np
 import os
 import sys
-import subprocess
 
 def main(argv):
-    path = f'/home/dwdd/thesis/output/{argv[0]}'
+    path = argv[0]
     n_cpus = int(argv[1])
+    f = open(os.devnull, 'w')
+    old_stdout = sys.stdout
+    sys.stdout = f
 
+    # Read CSV files
     app_output_headers = ['Run', 'Memory time', 'Disk time', 'Calc time', 'App time src',]
     app_output_df = pd.read_csv(f'{path}/app_outputs.csv', verbose=True, names=app_output_headers)
 
@@ -24,21 +26,11 @@ def main(argv):
     for cpu in range(n_cpus):
         runtime_app_cpu_headers.append([f"test"])
         runtime_tot_cpu_headers.append([f"test"])
-        runtime_app_cpu_df[f'cpu {cpu}'] = (pd.read_csv(f'{path}/1/runtime_app_cpu{cpu}.csv', verbose=True, names=runtime_app_cpu_headers[cpu]))
-        runtime_tot_cpu_df[f'cpu {cpu}'] = (pd.read_csv(f'{path}/1/runtime_tot_cpu{cpu}.csv', verbose=True, names=runtime_tot_cpu_headers[cpu]))
-        print(runtime_app_cpu_df[f'cpu {cpu}'])
-        # print(runtime_tot_cpu_df[f'cpu {cpu}'])
+        runtime_app_cpu_df[f'cpu {cpu}'] = pd.read_csv(f'{path}/1/runtime_app_cpu{cpu}.csv', verbose=True, names=runtime_app_cpu_headers[cpu], on_bad_lines='skip')
+        runtime_tot_cpu_df[f'cpu {cpu}'] = pd.read_csv(f'{path}/1/runtime_tot_cpu{cpu}.csv', verbose=True, names=runtime_tot_cpu_headers[cpu], on_bad_lines='skip')
 
-    # runtime_headers = []
-    # if (n_cpus == 2): # FIXA DETTA MED LOOP
-    #     runtime_headers = ['Run', 'App time observed all cpus', 'Tot time observed all cpus', 'App time observed CPU 0', 'App time observed CPU 1', 'Tot time observed CPU 0', 'Tot time observed CPU 1', 'Idle time CPU 0', 'Idle time CPU 1', 'Idle % CPU 0', 'Idle % CPU 1']
-    # elif (n_cpus == 4):
-    #     runtime_headers = ['Run', 'App time observed all cpus', 'Tot time observed all cpus', 'App time observed CPU 0', 'App time observed CPU 1', 'App time observed CPU 2', 'App time observed CPU 3', 'Tot time observed CPU 0', 'Tot time observed CPU 1', 'Tot time observed CPU 2', 'Tot time observed CPU 3', 'Idle time CPU 0', 'Idle time CPU 1', 'Idle time CPU 2', 'Idle time CPU 3', 'Idle % CPU 0', 'Idle % CPU 1', 'Idle % CPU 2', 'Idle % CPU 3']
-    # runtime_df = pd.read_csv(f'{path}/runtimes.csv', verbose=True, names=runtime_headers)
-    # runtime_df.set_index('Run')
-
-    runtime_app_all_cpus_df = pd.read_csv(f'{path}/1/runtime_app_all_cpus.csv', verbose=True, names=runtime_app_all_cpus_headers)
-    runtime_tot_all_cpus_df = pd.read_csv(f'{path}/1/runtime_tot_all_cpus.csv', verbose=True, names=runtime_tot_all_cpus_headers)
+    runtime_app_all_cpus_df = pd.read_csv(f'{path}/1/runtime_app_all_cpus.csv', verbose=True, names=runtime_app_all_cpus_headers, on_bad_lines='skip')
+    runtime_tot_all_cpus_df = pd.read_csv(f'{path}/1/runtime_tot_all_cpus.csv', verbose=True, names=runtime_tot_all_cpus_headers, on_bad_lines='skip')
     idle_time_df = pd.read_csv(f'{path}/1/idle_time.csv', verbose=True, names=idle_time_headers)
     idle_percent_df = pd.read_csv(f'{path}/1/idle_percent.csv', verbose=True, names=idle_percent_headers)
         
@@ -62,17 +54,6 @@ def main(argv):
     cpus_used_headers = ['Run', 'CPUs_used']
     cpus_used_df = pd.read_csv(f'{path}/cpus_used.csv', verbose=True, names=cpus_used_headers)
 
-    row1_cpus = cpus_used_df.iloc[[0]]
-
-    cpus = row1_cpus['CPUs_used'].item().replace("[", "").replace("]", "")
-
-    cpus = cpus.split()
-    for i, cpu in enumerate(cpus):
-        cpus[i] = int(cpu[3:])
-
-    n_cpus_used = len(cpus)
-
-
     time = 0
     with open(f'{path}/1/perf_stat_time.csv', 'r') as perf_stat_time:
         time = perf_stat_time.read()
@@ -90,18 +71,6 @@ def main(argv):
     perf_stat_ic_headers = []
     perf_stat_cycles_headers = []
 
-    # if (n_cpus_used > 1):
-    #     perf_stat_ic_headers = ['cpu','one','ic','unit','#', 'ipc', 'ins','per','cycle', 'multiplex']
-    #     perf_stat_cycles_headers = ['cpu', 'one', 'cycles','unit', 'multiplex']
-    #     perf_stat_mem_loads_headers = ['cpu','one','mem-loads','unit', 'multiplex']
-    #     perf_stat_mem_stores_headers = ['cpu','one','mem-stores','unit', 'multiplex']
-    #     perf_stat_cycle_stalls_total_headers = ['cpu','one','cycle-stalls','unit', 'multiplex']
-    #     perf_stat_hw_interrupts_received_headers = ['cpu','one','interrupts','unit', 'multiplex']
-    #     perf_stat_cache_misses_headers = ['cpu','one','cache-misses','unit','#','%', 'percentage', 'of' 'all', 'cache', 'refs', 'multiplex']
-    #     perf_stat_branch_misses_headers = ['cpu','one','branch-misses','unit','#','%', 'of' 'all', 'branches', 'multiplex']
-    #     perf_stat_page_faults_headers = ['cpu','one','page-faults','unit']
-
-    # else:
     perf_stat_ic_headers = ['ic','unit','#', 'ipc', 'ins','per','cycle', 'multiplex']
     perf_stat_cycles_headers = ['cycles','unit', 'multiplex']
     perf_stat_mem_loads_headers = ['mem-loads','unit', 'multiplex']
@@ -123,57 +92,44 @@ def main(argv):
     perf_stat_page_faults_df = pd.read_csv(f'{path}/1/perf_stat_page_faults.csv', verbose=True, names=perf_stat_page_faults_headers).drop(columns=['unit'])
 
 
-    # T = 1 / cpu_freq
+    # Get CPUs used
+    row1_cpus = cpus_used_df.iloc[[0]]
+
+    cpus = row1_cpus['CPUs_used'].item().replace("[", "").replace("]", "")
+
+    cpus = cpus.split()
+    for i, cpu in enumerate(cpus):
+        cpus[i] = int(cpu[3:])
+
+    n_cpus_used = len(cpus)
+
+
+    # Declare empty variables
     Ts = [1 / cpu_freqs[i] for i in range(n_cpus)]
     CTs_ideal = [0 for i in range(n_cpus)]
     CTs_stalls = [0 for i in range(n_cpus)]
     CT_TOT = 0
-    # if (n_cpus_used > 1):
-    #     for i in range(n_cpus):
-    #         ic = perf_stat_ic_df.loc[perf_stat_ic_df['cpu'] == f"S0-D0-C{i}", "ic"].item()
-    #         ic = ''.join(ic.split())
-    #         ic = int(ic)
 
-    #         ipc = perf_stat_ic_df.loc[perf_stat_ic_df['cpu'] == f"S0-D0-C{i}", "ipc"].item()
-
-    #         cycles = perf_stat_cycles_df.loc[perf_stat_ic_df['cpu'] == f"S0-D0-C{i}", "cycles"].item()
-    #         cycles = ''.join(cycles.split())
-    #         cycles = int(cycles)
-
-
-
-    #         cycle_stalls_total = perf_stat_cycle_stalls_total_df.loc[perf_stat_ic_df['cpu'] == f"S0-D0-C{i}", "cycle-stalls"].item()
-    #         cycle_stalls_total = ''.join(cycle_stalls_total.split())
-    #         cycle_stalls_total = int(cycle_stalls_total)
-
-        
-    #         CTs_ideal[cpus[0]] = ic * (1/ipc) * Ts[cpus[0]]
-    #         CTs_stalls[cpus[0]] = (cycles + cycle_stalls_total) * Ts[cpus[0]]
-
-    #         print()
-    #         print(f"CPU {i}")
-    #         print(f"Theoretical time cycles:                    {cycles*Ts[cpus[0]]:.2f}")
-    #         print(f"Theoretical time cycles + stalls:           {(cycles + cycle_stalls_total)*Ts[cpus[0]]:.2f}")
-    #         print(f"Cycles:                                     {cycles}")
-    #         print(f"Stall cycles:                               {cycle_stalls_total}")
-    #         print(f"Stall cycles / cycles:                      {cycle_stalls_total / cycles}")
-    #         CT_TOT += CTs_ideal[cpus[0]]
-
-    # else:
+    # Parse instruction count
     ic = perf_stat_ic_df["ic"].item()
     ic = ''.join(ic.split())
     ic = int(ic)
 
+    # Parse app CPU cycles
     cycles = perf_stat_cycles_df["cycles"].item()
     cycles = ''.join(cycles.split())
     cycles = int(cycles)
 
+    # Parse app CPU stall cycles
     cycle_stalls_total = perf_stat_cycle_stalls_total_df["cycle-stalls"].item()
     cycle_stalls_total = ''.join(cycle_stalls_total.split())
     cycle_stalls_total = int(cycle_stalls_total)
 
+    # Get app IPC
     ipc = perf_stat_ic_df["ipc"].item()
 
+
+    # CPU time calculations
     CTs_ideal[cpus[0]] = ic * (1/ipc) * Ts[cpus[0]]
     CTs_stalls[cpus[0]] = (cycles + cycle_stalls_total) * Ts[cpus[0]]
 
@@ -181,48 +137,12 @@ def main(argv):
     t_with_stalls = cycles*Ts[cpus[0]]
     slowdown = (time/t_ideal - 1) * 100
 
-    # app_runtime_on_cpu = perf_sched_summary_cpu_dfs_new[cpus[0]].loc[perf_sched_summary_cpu_dfs_new[cpus[0]]['process'].str.contains("thesis_app"), "run-time (ms)"].item() / (10**3)
-
-    branch_misses = perf_stat_branch_misses_df.iloc[[0]]['branch-misses'].item()
-    branch_misses_percent = perf_stat_branch_misses_df.iloc[[0]]['%'].item()
-    
-    print("\n----------------------- CPU -----------------------")
-    print(f"Theoretical CPU time incl. mem stalls:  {t_with_stalls:.2f} seconds")
-    print(f"Theoretical ideal CPU time:             {t_ideal:.2f} seconds")
-    # print(f"Measured CPU time:                      {app_runtime_on_cpu:.2f} seconds")
-    print(f"Wall time:                              {time:.2f} seconds")
-    print(f"Diff time wall & ideal:                 {(time-t_ideal):.2f} seconds")
-    print(f"Slowdown wall vs ideal:                 {slowdown:.2f}%")
-    print(f"CPU freq:                               {cpu_freqs[0] / (10**9):.2f} GHz")
-    print(f"Branch misses:                          {branch_misses}     ({branch_misses_percent} of total branch instructions)")
-
-
-    
-    mem_total = 1
-    mem_used = 1
-    mem_util = mem_used / mem_total * 100
-    cache_misses = perf_stat_cache_misses_df.iloc[[0]]['cache-misses'].item()
-    cache_misses_percent = perf_stat_cache_misses_df.iloc[[0]]['%'].item()
-    mem_stores = perf_stat_mem_stores_df.iloc[[0]]['mem-stores'].item()
-    mem_loads = perf_stat_mem_loads_df.iloc[[0]]['mem-loads'].item()
-    page_faults = perf_stat_page_faults_df.iloc[[0]]['page-faults'].item()
-    
-    print("\n----------------------- Memory usage -----------------------")
-    print(f"Cache misses:                           {cache_misses}      ({cache_misses_percent}% of total cache references)")
-    print(f"Memory stores:                          {mem_stores}")
-    print(f"Memory loads:                           {mem_loads}")
-    print(f"Page faults:                            {page_faults}")
-
-    print("\n----------------------- I/O -----------------------")
-    print(f"Number of hardware interrupts:          {perf_stat_hw_interrupts_received_df['hw_interrupts'].item()}")
-
-    print("\n----------------------- CPU utilization -----------------------")
-
     tot_cpu_utils = [0 for i in range(n_cpus)]
     app_cpu_utils = [0 for i in range(n_cpus*2)]
     tot_plus_idle = [0 for i in range(n_cpus)]
     app_mean = [0, 0]
     tot_runtime_app_cpu = {}
+    tot_runtime_all_cpus = 0
     for cpu in range(n_cpus):
         tot_runtime_app_cpu[f'cpu {cpu}'] = 0
         for i, row in runtime_app_cpu_df[f'cpu {cpu}'].iterrows():
@@ -234,9 +154,28 @@ def main(argv):
         if (cpu in cpus):
             app_mean[0] += app_cpu_utils[cpu]
             app_mean[1] += app_cpu_utils[cpu + n_cpus]
+        tot_runtime_all_cpus += tot_runtime_app_cpu[f'cpu {cpu}']
     
     app_mean[0] = app_mean[0] / len(cpus)
     app_mean[1] = app_mean[1] / len(cpus)
+
+    # Branch misses
+    branch_misses = perf_stat_branch_misses_df.iloc[[0]]['branch-misses'].item()
+    branch_misses_percent = perf_stat_branch_misses_df.iloc[[0]]['%'].item()
+
+    # Memory
+    mem_total = 1
+    mem_used = 1
+    mem_util = mem_used / mem_total * 100
+    cache_misses = perf_stat_cache_misses_df.iloc[[0]]['cache-misses'].item()
+    cache_misses_percent = perf_stat_cache_misses_df.iloc[[0]]['%'].item()
+    mem_stores = perf_stat_mem_stores_df.iloc[[0]]['mem-stores'].item()
+    mem_loads = perf_stat_mem_loads_df.iloc[[0]]['mem-loads'].item()
+    page_faults = perf_stat_page_faults_df.iloc[[0]]['page-faults'].item()
+    
+    sys.stdout = old_stdout
+
+    print("\n----------------------- CPU utilization -----------------------")
 
     print(f"CPU(s) used for application: {cpus}\n")
     for i, tot_cpu_util in enumerate(tot_cpu_utils):
@@ -250,16 +189,34 @@ def main(argv):
     for i in range(n_cpus):
         print(f"idle time CPU{i}:   {'{0:.2f}'.format(idle_time_df.iloc[[i]]['test'].item())} seconds (0% of active, {idle_percent_df.iloc[[i]]['test'].item()}% of total)")
         
-    cpu_util_score = app_cpu_utils[cpus[0] + n_cpus] - idle_percent_df.iloc[[i]]['test'].item()
+    cpu_util_score = app_cpu_utils[cpus[0] + n_cpus] - idle_percent_df.iloc[[cpus[0]]]['test'].item()
 
-    print("\nTop five processes used during app runtime:")
+    print("\n\nTop five processes with the highest runtime during app runtime:")
     for i in range(n_cpus):
         print(f"\nCPU{i}")
         print(perf_sched_summary_cpu_dfs_new[i].head())
     print()
 
-    print("\n----------------------- SCORES -----------------------")
+    print("\n----------------------- CPU time -----------------------")
+    print(f"Theoretical ideal CPU time:                 {t_ideal:.2f} seconds")
+    print(f"Theoretical CPU time incl. stall cycles:    {t_with_stalls:.2f} seconds")
+    print(f"Actual CPU time:                            {tot_runtime_all_cpus:.2f} seconds")
+    print(f"Wall time:                                  {time:.2f} seconds")
+    print(f"Diff time wall & ideal:                     {(time-t_ideal):.2f} seconds")
+    print(f"Slowdown wall vs ideal:                     {slowdown:.2f}%")
+    print(f"CPU freq:                                   {cpu_freqs[0] / (10**9):.2f} GHz")
+    print(f"Branch misses:                              {branch_misses}     ({branch_misses_percent} of total branch instructions)")
+    
+    print("\n----------------------- Memory -----------------------")
+    print(f"Cache misses:                           {cache_misses}      ({cache_misses_percent}% of total cache references)")
+    print(f"Memory stores:                          {mem_stores}")
+    print(f"Memory loads:                           {mem_loads}")
+    print(f"Page faults:                            {page_faults}")
 
+    print("\n----------------------- I/O -----------------------")
+    print(f"Number of hardware interrupts:          {perf_stat_hw_interrupts_received_df['hw_interrupts'].item()}")
+
+    print("\n----------------------- SCORES -----------------------")
     print(f"CPU time score (ideal):                 {((t_ideal/time)*100):.2f}")
     print(f"CPU time score (with mem stalls):       {((t_with_stalls/time)*100):.2f}")
     print(f"CPU utilization score:                  {(cpu_util_score):.2f}")
