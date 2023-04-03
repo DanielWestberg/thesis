@@ -1,5 +1,6 @@
 output/
 .vscode/
+FlameGraph/
 *.txt
 *.bin
 *.data
