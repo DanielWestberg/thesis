@@ -1,6 +1,5 @@
 #!/usr/bin/bash
 
-ITERATIONS=1
 DISABLE_OBSERVE_ITER=0
 
 # Get config
@@ -10,10 +9,12 @@ APP_PATH=$(echo $CONFIG | jq '.app_path' | tr -d '"')
 PRE_RUN_COMMAND=$(echo $CONFIG | jq '.pre_run_command' | tr -d '"')
 RUN_COMMAND=$(echo $CONFIG | jq '.run_command' | tr -d '"')
 IS_EXECUTABLE=$(echo $CONFIG | jq '.is_executable' | tr -d '"')
-NOISE_TYPE=$(echo $CONFIG | jq '.noise' | tr -d '"')
+NOISE_TYPE=$(echo $CONFIG | jq '.noise_type' | tr -d '"')
+NOISE_WORKERS=$(echo $CONFIG | jq '.noise_workers' | tr -d '"')
 APP_ISOL_CPU=$(echo $CONFIG | jq '.cpu_isolation')
 ALL_CPUS=$(echo $CONFIG | jq '.all_cpus' | tr -d '"')
 PLOT_GRAPHS=$(echo $CONFIG | jq '.plot_graphs' | tr -d '"')
+ITERATIONS=$(echo $CONFIG | jq '.n_iterations' | tr -d '"')
 
 $PRE_RUN_COMMAND
 PROCESS_PID=""
@@ -58,9 +59,9 @@ fi
 # Store current time as a variable and create a new dir
 SCRIPT_DIR=$PWD
 OUTPUT_DIR="output"
-[ ! -d "$SCRIPT_DIR/$OUTPUT_DIR" ] && mkdir "$SCRIPT_DIR/$OUTPUT_DIR" 
+[ ! -d "$SCRIPT_DIR/$OUTPUT_DIR" ] && sudo -u $SUDO_USER mkdir "$SCRIPT_DIR/$OUTPUT_DIR" 
 CURRENT_TIME="$(date +%Y%m%d_%H%M%S)"
-mkdir "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME"
+sudo -u $SUDO_USER mkdir "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME"
 
 # Get standard CPU freq
 CPU_FREQS=$(cat /proc/cpuinfo | grep "model name" | awk '{print $9}')
@@ -72,8 +73,9 @@ sudo cpupower frequency-set -u $CPU0_FREQ > /dev/null 2>&1
 
 for (( i=1; i<=$ITERATIONS; i++ ))
 do
+    echo ""
     echo "Run $i"
-    mkdir "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i"
+    sudo -u $SUDO_USER mkdir "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i"
 
     if [ $NOISE_BOOL = 1 ]; then
         # Add noise to system
@@ -83,25 +85,26 @@ do
         IO_FLAG=""
         if [[ $NOISE_TYPE == *"cpu"* ]]
         then
-            CPU_FLAG="-c 1"
+            CPU_FLAG="-c $NOISE_WORKERS"
         fi
 
         if [[ $NOISE_TYPE == *"memory"* ]]
         then
-            MEM_FLAG="-m 1"
+            MEM_FLAG="-m $NOISE_WORKERS"
         fi
         
         if [[ $NOISE_TYPE == *"disk"* ]]
         then
-            DISK_FLAG="-d 1"
+            DISK_FLAG="-d $NOISE_WORKERS"
         fi
 
         if [[ $NOISE_TYPE == *"io"* ]]
         then
-            IO_FLAG="-i 1"
+            IO_FLAG="-i $NOISE_WORKERS"
         fi
         echo "Starting $NOISE_TYPE stress..."
         stress $CPU_FLAG $MEM_FLAG $DISK_FLAG $IO_FLAG &
+        echo "done"
     fi
 
     if [[ $i != $DISABLE_OBSERVE_ITER ]]
@@ -193,7 +196,7 @@ do
         echo "done"
     fi
 
-    sleep 1
+    sleep 2
     # Generate flamegraph
     if [[ $i != $DISABLE_OBSERVE_ITER ]]
     then
@@ -204,14 +207,11 @@ do
     fi
 
     echo -n "Generating scheduling time history..."
-    sudo perf sched timehist -MVwn -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw.txt > /dev/null 2>&1
     sudo perf sched timehist -s -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt > /dev/null 2>&1
 
     for (( CPU=0; CPU<$N_CPUS; CPU++ ))
     do
-        sudo perf sched timehist -MVwn --cpu=$CPU -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw_cpu$CPU.txt > /dev/null 2>&1
         sudo perf sched timehist -s --cpu=$CPU -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt > /dev/null 2>&1
-        sudo perf sched timehist -MVwnI --cpu=$CPU -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_raw_idle_cpu$CPU.txt > /dev/null 2>&1
 
         tail -n +6 $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | egrep -v "Terminated tasks|Idle stats|idle for|Total number|Total run|Total scheduling" | awk '{$1=$1;print}' \
             | while read -a line; do if [[ "${#line[@]}" -ge 10 ]] ; then index="$(("${#line[@]}"-9))" ; else index=0 ; fi; echo "${line[@]:$index}" >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/temp_perf_sched_summary_cpu$CPU.txt ; done
@@ -300,6 +300,10 @@ do
     
     echo "done"
     
+    echo -n "Removing redundant files..."
+    rm $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data
+    rm $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf.data
+    echo "done"
 done
 
 echo -n "Resetting CPU isolations..."
