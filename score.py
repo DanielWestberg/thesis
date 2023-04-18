@@ -6,6 +6,8 @@ import sys
 
 def main(argv):
     path = argv[0]
+    if (path[-1] == "/"):
+        path = path[:-1]
     process_name = argv[1]
     n_cpus = int(argv[2])
     plot_graphs = (argv[3] == "yes")
@@ -36,13 +38,10 @@ def main(argv):
         if (run_iter == 0):
             continue
 
-
         # Read CSV files
         app_output_headers = ['Run', 'Memory time', 'Disk time', 'Calc time', 'App time src']
         app_output_df = pd.read_csv(f'{path}/app_outputs.csv', verbose=True, names=app_output_headers)
 
-        runtime_app_all_cpus_headers = ['test']
-        runtime_tot_all_cpus_headers = ['test']
         idle_time_headers = ['test']
         idle_percent_headers = ['test']
         runtime_app_cpu_headers = []
@@ -56,12 +55,10 @@ def main(argv):
             runtime_app_cpu_df[f'cpu {cpu}'] = pd.read_csv(f'{path}/{run_iter}/runtime_app_cpu{cpu}.csv', verbose=True, names=runtime_app_cpu_headers[cpu], on_bad_lines='skip')
             runtime_tot_cpu_df[f'cpu {cpu}'] = pd.read_csv(f'{path}/{run_iter}/runtime_tot_cpu{cpu}.csv', verbose=True, names=runtime_tot_cpu_headers[cpu], on_bad_lines='skip')
 
-        runtime_app_all_cpus_df = pd.read_csv(f'{path}/{run_iter}/runtime_app_all_cpus.csv', verbose=True, names=runtime_app_all_cpus_headers, on_bad_lines='skip')
-        runtime_tot_all_cpus_df = pd.read_csv(f'{path}/{run_iter}/runtime_tot_all_cpus.csv', verbose=True, names=runtime_tot_all_cpus_headers, on_bad_lines='skip')
         idle_time_df = pd.read_csv(f'{path}/{run_iter}/idle_time.csv', verbose=True, names=idle_time_headers)
         idle_percent_df = pd.read_csv(f'{path}/{run_iter}/idle_percent.csv', verbose=True, names=idle_percent_headers)
             
-        perf_sched_summary_cpu_headers = ['process', 'parent', 'sched-in', 'run-time (ms)', 'min-run', 'avg-run', 'max-run', 'stddev' ,'migrations', 'NaN']
+        perf_sched_summary_cpu_headers = ['process', 'parent', 'sched-in', 'run-time (ms)', 'min-run', 'avg-run', 'max-run', 'stddev' ,'migrations']
         perf_sched_summary_cpu_dfs = []
         perf_sched_summary_cpu_dfs_new = []
         for i in range(n_cpus):
@@ -123,20 +120,14 @@ def main(argv):
         # Get CPUs used
         row1_cpus = cpus_used_df.iloc[[0]]
 
-        cpus = row1_cpus['CPUs_used'].item().replace("[", "").replace("]", "")
+        cpus_used = row1_cpus['CPUs_used'].item().replace("[", "").replace("]", "")
 
-        cpus = cpus.split()
-        for i, cpu in enumerate(cpus):
-            cpus[i] = int(cpu[3:])
-
-        n_cpus_used = len(cpus)
-
+        cpus_used = cpus_used.split()
+        for i, cpu in enumerate(cpus_used):
+            cpus_used[i] = int(cpu[3:])
 
         # Declare empty variables
         Ts = [1 / cpu_freqs[i] for i in range(n_cpus)]
-        CTs_ideal = [0 for i in range(n_cpus)]
-        CTs_stalls = [0 for i in range(n_cpus)]
-        CT_TOT = 0
 
         # Parse instruction count
         ic = perf_stat_ic_df["ic"].item()
@@ -153,15 +144,12 @@ def main(argv):
         cycle_stalls_total = ''.join(cycle_stalls_total.split())
         cycle_stalls_total = int(cycle_stalls_total)
 
-        # Get app IPC
-        ipc = perf_stat_ic_df["ipc"].item()
-
         # CPU time calculations
-        CTs_ideal[cpus[0]] = ic * (1/ipc) * Ts[cpus[0]]
-        CTs_stalls[cpus[0]] = (cycles + cycle_stalls_total) * Ts[cpus[0]]
-
-        t_ideal = (cycles - cycle_stalls_total)*Ts[cpus[0]]
-        t_with_stalls = cycles*Ts[cpus[0]]
+        t_ideal = 0
+        t_with_stalls = 0
+        for cpu in cpus_used:
+            t_ideal += (cycles - cycle_stalls_total)*Ts[cpu]
+            t_with_stalls += cycles*Ts[cpu]
         slowdown = (wall_time/t_ideal - 1) * 100
 
         tools_dfs = []
@@ -183,7 +171,7 @@ def main(argv):
             tot_cpu_utils[cpu] = runtime_tot_cpu_df[f'cpu {cpu}'].iloc[[0]]['test'].item() / tot_plus_idle[cpu] * 100
             app_cpu_utils[cpu] = tot_runtime_app_cpu[f'cpu {cpu}'] / runtime_tot_cpu_df[f'cpu {cpu}'].iloc[[0]]['test'].item() * 100
             app_cpu_utils[cpu + n_cpus] = tot_runtime_app_cpu[f'cpu {cpu}'] / tot_plus_idle[cpu] * 100        
-            if (cpu in cpus):
+            if (cpu in cpus_used):
                 app_mean[0] += app_cpu_utils[cpu]
                 app_mean[1] += app_cpu_utils[cpu + n_cpus]
             tot_runtime_all_cpus += tot_runtime_app_cpu[f'cpu {cpu}']
@@ -192,8 +180,8 @@ def main(argv):
             tools_cpu_utils[cpu] = tools_cpu_time[cpu] / runtime_tot_cpu_df[f'cpu {cpu}'].iloc[[0]]['test'].item() * 100
             tools_cpu_utils[cpu + n_cpus] = tools_cpu_time[cpu] / tot_plus_idle[cpu] * 100        
         
-        app_mean[0] = app_mean[0] / len(cpus)
-        app_mean[1] = app_mean[1] / len(cpus)
+        app_mean[0] = app_mean[0] / len(cpus_used)
+        app_mean[1] = app_mean[1] / len(cpus_used)
 
         # Branch misses
         branch_misses = perf_stat_branch_misses_df.iloc[[0]]['branch-misses'].item()
@@ -209,10 +197,11 @@ def main(argv):
         mem_loads = perf_stat_mem_loads_df.iloc[[0]]['mem-loads'].item()
         page_faults = perf_stat_page_faults_df.iloc[[0]]['page-faults'].item()
         
+        ################# SUMMARY ONE ITERATION #################
         sys.stdout = old_stdout
         
-        if os.path.exists(f"{path}/summary.txt"):
-            os.remove(f"{path}/summary.txt")
+        if os.path.exists(f"{path}/{run_iter}/summary.txt"):
+            os.remove(f"{path}/{run_iter}/summary.txt")
 
         summary_file = open(f'{path}/{run_iter}/summary.txt', 'a')
 
@@ -220,7 +209,7 @@ def main(argv):
 
         print("\n----------------------- CPU utilization -----------------------", file = summary_file)
 
-        print(f"CPU(s) used for application: {cpus}\n", file = summary_file)
+        print(f"CPU(s) used for application: {cpus_used}\n", file = summary_file)
         for i, tot_cpu_util in enumerate(tot_cpu_utils):
             print(f"Active time CPU{i}: {'{0:.2f}'.format(runtime_tot_cpu_df[f'cpu {i}'].iloc[[0]]['test'].item())} seconds (100% of active, {'{0:.2f}'.format(tot_cpu_util)}% of total)", file = summary_file)
         
@@ -235,8 +224,18 @@ def main(argv):
         print("", file = summary_file)
         for i in range(n_cpus):
             print(f"idle time CPU{i}:   {'{0:.2f}'.format(idle_time_df.iloc[[i]]['test'].item())} seconds (0% of active, {idle_percent_df.iloc[[i]]['test'].item()}% of total)", file = summary_file)
-            
-        cpu_util_score = app_cpu_utils[cpus[0] + n_cpus] - idle_percent_df.iloc[[cpus[0]]]['test'].item()
+        
+        cpu_util_score = 0
+        for cpu in cpus_used:
+            cpu_util_score += app_cpu_utils[cpu + n_cpus]
+            # cpu_util_score += app_cpu_utils[cpu + n_cpus] - idle_percent_df.iloc[[cpu]]['test'].item()
+        
+        cpu_util_score = cpu_util_score / len(cpus_used)
+
+        idle_score = 0
+        for cpu in cpus_used:
+            idle_score += idle_percent_df.iloc[[cpu]]['test'].item()
+
 
         print("\n\nTop five processes with the highest runtime during app runtime:", file = summary_file)
         for i in range(n_cpus):
@@ -281,7 +280,8 @@ def main(argv):
         times_file.close()
 
         scores_file = open(f"{path}/scores.csv", "a")
-        scores_file.write(f"{run_iter},{(t_ideal/wall_time)*100},{(t_ideal/tot_runtime_all_cpus)*100},{(t_with_stalls/wall_time)*100},{(t_with_stalls/tot_runtime_all_cpus)*100},{(tot_runtime_all_cpus/wall_time)*100},{cpu_util_score}\n")
+        # scores_file.write(f"{run_iter},{(t_ideal/wall_time)*100},{(t_ideal/tot_runtime_all_cpus)*100},{(t_with_stalls/wall_time)*100},{(t_with_stalls/tot_runtime_all_cpus)*100},{(tot_runtime_all_cpus/wall_time)*100},{cpu_util_score},{idle_score}\n")
+        scores_file.write(f"{run_iter},{(t_ideal/tot_runtime_all_cpus)*100},{(tot_runtime_all_cpus/wall_time)*100},{cpu_util_score},{idle_score}\n")
         scores_file.close()
         
         misses_percent_file = open(f"{path}/misses_percent.csv", "a")
@@ -297,9 +297,53 @@ def main(argv):
             for j in range(5):
                 top_five_processes_file.write(f"{run_iter},{i},{perf_sched_summary_cpu_dfs_new[i].iloc[j]['process'].split('[')[0]},{perf_sched_summary_cpu_dfs_new[i].iloc[j]['run-time (ms)']}\n")
             top_five_processes_file.close()
-        # if (run_iter > 10):
-        #     # exit()
-        #     break
+
+
+    ################# SUMMARY ALL ITERATIONS #################
+    print(f"\n###################### SUMMARY ######################\n")
+
+    if (os.path.isfile(f'{path}/times.csv')):
+        print("\n----------------------- TIMES -----------------------")
+        times_headers = ['Run', 'Ideal CPU time', 'Ideal CPU time with stall cycles', 'Actual CPU time', 'Wall time']
+        times_df = pd.read_csv(f'{path}/times.csv', names=times_headers)
+        print(times_df[['Ideal CPU time', 'Ideal CPU time with stall cycles', 'Actual CPU time', 'Wall time']].describe().applymap('{:,.2f}'.format))
+        print()
+        print(f"Run iteration with highest ideal CPU time: {times_df.loc[times_df['Ideal CPU time'] == times_df['Ideal CPU time'].max(), 'Run'].iloc[0]}")
+        print(f"Run iteration with highest actual CPU time: {times_df.loc[times_df['Actual CPU time'] == times_df['Actual CPU time'].max(), 'Run'].iloc[0]}")
+        print(f"Run iteration with highest wall time: {times_df.loc[times_df['Wall time'] == times_df['Wall time'].max(), 'Run'].iloc[0]}")
+        print()
+    
+    if (os.path.isfile(f'{path}/scores.csv')):
+        print("\n----------------------- SCORES -----------------------")
+        scores_headers = ['Run', 'CPU stall score', 'CPU noise score', 'CPU utilization score', 'CPU idle score']
+        scores_df = pd.read_csv(f'{path}/scores.csv', names=scores_headers)
+        print(scores_df[['CPU stall score', 'CPU noise score', 'CPU utilization score', 'CPU idle score']].describe().applymap('{:,.2f}'.format))
+        print()
+        print(f"Run iteration with the lowest CPU stall score: {scores_df.loc[scores_df['CPU stall score'] == scores_df['CPU stall score'].min(), 'Run'].iloc[0]}")
+        print(f"Run iteration with the lowest CPU noise score: {scores_df.loc[scores_df['CPU noise score'] == scores_df['CPU noise score'].min(), 'Run'].iloc[0]}")
+        print(f"Run iteration with the lowest CPU utilization score: {scores_df.loc[scores_df['CPU utilization score'] == scores_df['CPU utilization score'].min(), 'Run'].iloc[0]}")
+        print(f"Run iteration with the highest CPU idle score: {scores_df.loc[scores_df['CPU idle score'] == scores_df['CPU idle score'].max(), 'Run'].iloc[0]}")
+        print()
+    
+    if (os.path.isfile(f'{path}/misses_percent.csv')):
+        print("\n----------------------- MISS % -----------------------")
+        misses_percent_headers = ['Run', 'Cache misses %', 'Branch misses %']
+        misses_percent_df = pd.read_csv(f'{path}/misses_percent.csv', names=misses_percent_headers)
+        print(misses_percent_df[['Cache misses %', 'Branch misses %']].describe().applymap('{:,.2f}'.format))
+        print()
+        print(f"Run iteration with the highest cache miss %: {misses_percent_df.loc[misses_percent_df['Cache misses %'] == misses_percent_df['Cache misses %'].max(), 'Run'].iloc[0]}")
+        print(f"Run iteration with the highest branch miss %: {misses_percent_df.loc[misses_percent_df['Branch misses %'] == misses_percent_df['Branch misses %'].max(), 'Run'].iloc[0]}")
+        print()
+    
+    if (os.path.isfile(f'{path}/hw_interrupts.csv')):
+        print("\n----------------------- HARDWARE INTERRUPTS -----------------------")
+        hw_interrupts_headers = ['Run', 'HW interrupts']
+        hw_interrupts_df = pd.read_csv(f'{path}/hw_interrupts.csv', names=hw_interrupts_headers)
+        print(hw_interrupts_df[['HW interrupts']].describe().applymap('{:,.2f}'.format))
+        print()
+        print(f"Run iteration with the highest hardware interrupts: {hw_interrupts_df.loc[hw_interrupts_df['HW interrupts'] == hw_interrupts_df['HW interrupts'].max(), 'Run'].iloc[0]}")
+        print()
+
 
     ################# PLOTS #################
 
@@ -307,7 +351,7 @@ def main(argv):
         exit()
 
     old_stdout = sys.stdout
-    
+    sys.stdout = f
 
     # for i, dir in enumerate(os.walk(path)):
     #     if (i == 0):
@@ -324,10 +368,11 @@ def main(argv):
         plt.title(f'Estimated and measured times per run iteration')
     
     if (os.path.isfile(f'{path}/scores.csv')):
-        scores_headers = ['Run', 'ideal/wall', 'ideal/actual', 'incl. stalls/wall', 'incl. stalls/actual', 'actual/wall', 'utilization']
+        # scores_headers = ['Run', 'ideal/wall', 'CPU stall score', 'incl. stalls/wall', 'incl. stalls/actual', 'CPU noise score', 'CPU utilization score', 'CPU idle score']
+        scores_headers = ['Run', 'CPU stall score', 'CPU noise score', 'CPU utilization score', 'CPU idle score']
         scores_df = pd.read_csv(f'{path}/scores.csv', names=scores_headers)
         scores_df.set_index('Run')
-        scores_df.plot(kind='line', x='Run', y=['ideal/wall', 'ideal/actual', 'incl. stalls/wall', 'incl. stalls/actual', 'actual/wall', 'utilization'], xticks=scores_df['Run'], ylim=(0,100))
+        scores_df.plot(kind='line', x='Run', y=['CPU stall score', 'CPU noise score', 'CPU utilization score', 'CPU idle score'], xticks=scores_df['Run'])
         plt.xlabel('Run iteration')
         plt.ylabel('Score')
         plt.title(f'Scores per run iteration')
@@ -357,11 +402,9 @@ def main(argv):
             top_five_processes_df = top_five_processes_df.groupby(['Run', 'process']).agg({'cpu': 'first', 'run-time (ms)': 'sum'}).reset_index()
             top_five_processes_df = top_five_processes_df.pivot(index='Run', columns='process', values='run-time (ms)')
             top_five_processes_df.plot(kind='line')
-            print(top_five_processes_df.head(10))
             plt.xlabel('Run iteration')
             plt.ylabel('Runtime (ms)')
             plt.title(f'Top <5 process runtimes for each iteration in CPU {i}')
-    sys.stdout = f
 
     if (process_name == "thesis_app"):
         app_output_df.set_index('Run')

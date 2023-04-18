@@ -53,7 +53,7 @@ esac
 
 # Compile thesis app
 if [ "$PROCESS_NAME" = "thesis_app" ]; then
-    make thesis_app
+    make thesis_app > /dev/null 2>&1
 fi
 
 # Store current time as a variable and create a new dir
@@ -213,7 +213,7 @@ do
     do
         sudo perf sched timehist -s --cpu=$CPU -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data | sudo dd of=$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt > /dev/null 2>&1
 
-        tail -n +6 $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | egrep -v "Terminated tasks|Idle stats|idle for|Total number|Total run|Total scheduling" | awk '{$1=$1;print}' \
+        tail -n +6 $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | egrep -v "Terminated tasks|Idle stats|idle for|idle entire time window|Total number|Total run|Total scheduling" | awk '{$1=$1;print}' \
             | while read -a line; do if [[ "${#line[@]}" -ge 10 ]] ; then index="$(("${#line[@]}"-9))" ; else index=0 ; fi; echo "${line[@]:$index}" >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/temp_perf_sched_summary_cpu$CPU.txt ; done
         sleep 1
         sed 's/\s\+/,/g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/temp_perf_sched_summary_cpu$CPU.txt | grep . > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.csv
@@ -284,10 +284,20 @@ do
     do
         cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep -w "Total run time" | awk '{print $5}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/runtime_tot_cpu$CPU.csv
     done
-
+    
     # Idle time and % per CPU
-    cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "idle for" | awk '{print $5}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_time.csv
-    cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary.txt | grep -w "idle for" | awk '{print $8}' | rev | cut -c3- | rev > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_percent.csv
+    sudo -u $SUDO_USER touch "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_time.csv"
+    sudo -u $SUDO_USER touch "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_percent.csv"
+    for (( CPU=0; CPU<$N_CPUS; CPU++ ))
+    do
+        if test -z "$(cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep -w 'idle for')"; then
+            cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep -w "Total run time" | awk '{print $5}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_time.csv
+            echo 100 >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_percent.csv
+        else
+            cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep -w "idle for" | awk '{print $5}' | xargs -I {} echo -e "scale=6; {}/1000" | bc -l >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_time.csv
+            cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched_summary_cpu$CPU.txt | grep -w "idle for" | awk '{print $8}' | rev | cut -c3- | rev >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_percent.csv
+        fi
+    done
     
     # Append to file containing all iterations
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/app_outputs.csv
