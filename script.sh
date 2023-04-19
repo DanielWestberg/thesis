@@ -62,6 +62,7 @@ OUTPUT_DIR="output"
 [ ! -d "$SCRIPT_DIR/$OUTPUT_DIR" ] && sudo -u $SUDO_USER mkdir "$SCRIPT_DIR/$OUTPUT_DIR" 
 CURRENT_TIME="$(date +%Y%m%d_%H%M%S)"
 sudo -u $SUDO_USER mkdir "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME"
+cp ./config.json $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME
 
 # Get standard CPU freq
 CPU_FREQS=$(cat /proc/cpuinfo | grep "model name" | awk '{print $9}')
