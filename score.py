@@ -29,6 +29,9 @@ def main(argv):
     if os.path.exists(f"{path}/hw_interrupts.csv"):
         os.remove(f"{path}/hw_interrupts.csv")
     
+    if os.path.exists(f"{path}/ipc.csv"):
+        os.remove(f"{path}/ipc.csv")
+    
     for i in range(n_cpus):
         if os.path.exists(f"{path}/top_five_processes_cpu{i}.csv"):
             os.remove(f"{path}/top_five_processes_cpu{i}.csv")
@@ -144,6 +147,9 @@ def main(argv):
         cycle_stalls_total = ''.join(cycle_stalls_total.split())
         cycle_stalls_total = int(cycle_stalls_total)
 
+        # Get app IPC
+        ipc = perf_stat_ic_df["ipc"].item()
+
         # CPU time calculations
         t_ideal = 0
         t_with_stalls = 0
@@ -251,6 +257,7 @@ def main(argv):
         print(f"Diff time wall & ideal:                     {(wall_time-t_ideal):.2f} seconds", file = summary_file)
         print(f"Slowdown wall vs ideal:                     {slowdown:.2f}%", file = summary_file)
         print(f"CPU freq:                                   {cpu_freqs[0] / (10**9):.2f} GHz", file = summary_file)
+        print(f"IPC:                                        {ipc}", file = summary_file)
         print(f"Branch misses:                              {branch_misses}     ({branch_misses_percent}% of total branch instructions)", file = summary_file)
         
         print("\n----------------------- Memory -----------------------", file = summary_file)
@@ -291,6 +298,10 @@ def main(argv):
         hw_interrupts_file = open(f"{path}/hw_interrupts.csv", "a")
         hw_interrupts_file.write(f"{run_iter},{int(''.join(perf_stat_hw_interrupts_received_df['hw_interrupts'].item().split()))}\n")
         hw_interrupts_file.close()
+        
+        ipc_file = open(f"{path}/ipc.csv", "a")
+        ipc_file.write(f"{run_iter},{ipc}\n")
+        ipc_file.close()
 
         for i in range(n_cpus):
             top_five_processes_file = open(f"{path}/top_five_processes_cpu{i}.csv", "a")
@@ -343,6 +354,15 @@ def main(argv):
         print()
         print(f"Run iteration with the highest hardware interrupts: {hw_interrupts_df.loc[hw_interrupts_df['HW interrupts'] == hw_interrupts_df['HW interrupts'].max(), 'Run'].iloc[0]}")
         print()
+    
+    if (os.path.isfile(f'{path}/hw_interrupts.csv')):
+        print("\n----------------------- INSTRUCTIONS PER CYCLE -----------------------")
+        ipc_headers = ['Run', 'IPC']
+        ipc_df = pd.read_csv(f'{path}/ipc.csv', names=ipc_headers)
+        print(ipc_df[['IPC']].describe().applymap('{:,.2f}'.format))
+        print()
+        print(f"Run iteration with the lowest IPC: {ipc_df.loc[ipc_df['IPC'] == ipc_df['IPC'].min(), 'Run'].iloc[0]}")
+        print()
 
 
     ################# PLOTS #################
@@ -362,7 +382,7 @@ def main(argv):
         times_headers = ['Run', 'Ideal CPU time', 'Ideal CPU time with stall cycles', 'Actual CPU time', 'Wall time']
         times_df = pd.read_csv(f'{path}/times.csv', names=times_headers)
         times_df.set_index('Run')
-        times_df.plot(kind='line', x='Run', y=['Ideal CPU time', 'Ideal CPU time with stall cycles', 'Actual CPU time', 'Wall time'], xticks=times_df['Run'], ylim=(0,times_df['Wall time'].max()*1.2))
+        times_df.plot(kind='line', x='Run', y=['Ideal CPU time', 'Ideal CPU time with stall cycles', 'Actual CPU time', 'Wall time'])
         plt.xlabel('Run iteration')
         plt.ylabel('Time (s)')
         plt.title(f'Estimated and measured times per run iteration')
@@ -372,7 +392,7 @@ def main(argv):
         scores_headers = ['Run', 'CPU stall score', 'CPU noise score', 'CPU utilization score', 'CPU idle score']
         scores_df = pd.read_csv(f'{path}/scores.csv', names=scores_headers)
         scores_df.set_index('Run')
-        scores_df.plot(kind='line', x='Run', y=['CPU stall score', 'CPU noise score', 'CPU utilization score', 'CPU idle score'], xticks=scores_df['Run'])
+        scores_df.plot(kind='line', x='Run', y=['CPU stall score', 'CPU noise score', 'CPU utilization score', 'CPU idle score'])
         plt.xlabel('Run iteration')
         plt.ylabel('Score')
         plt.title(f'Scores per run iteration')
@@ -381,7 +401,7 @@ def main(argv):
         misses_percent_headers = ['Run', 'Cache misses percentage', 'Branch misses percentage']
         misses_percent_df = pd.read_csv(f'{path}/misses_percent.csv', names=misses_percent_headers)
         misses_percent_df.set_index('Run')
-        misses_percent_df.plot(kind='line', x='Run', y=['Cache misses percentage', 'Branch misses percentage'], xticks=misses_percent_df['Run'], ylim=(0,100))
+        misses_percent_df.plot(kind='line', x='Run', y=['Cache misses percentage', 'Branch misses percentage'])
         plt.xlabel('Run iteration')
         plt.ylabel('Miss %')
         plt.title(f'Cache and branch misses %')
@@ -390,10 +410,19 @@ def main(argv):
         hw_interrupts_headers = ['Run', 'HW interrupts']
         hw_interrupts_df = pd.read_csv(f'{path}/hw_interrupts.csv', names=hw_interrupts_headers)
         hw_interrupts_df.set_index('Run')
-        hw_interrupts_df.plot(kind='line', x='Run', y=['HW interrupts'], xticks=hw_interrupts_df['Run'], ylim=(0,hw_interrupts_df['HW interrupts'].max()*1.2))
+        hw_interrupts_df.plot(kind='line', x='Run', y=['HW interrupts'])
         plt.xlabel('Run iteration')
         plt.ylabel('HW interrupts')
         plt.title(f'Hardware interrupts')
+    
+    if (os.path.isfile(f'{path}/ipc.csv')):
+        ipc_headers = ['Run', 'IPC']
+        ipc_df = pd.read_csv(f'{path}/ipc.csv', names=ipc_headers)
+        ipc_df.set_index('Run')
+        ipc_df.plot(kind='line', x='Run', y=['IPC'])
+        plt.xlabel('Run iteration')
+        plt.ylabel('IPC')
+        plt.title(f'Instructions per cycle')
     
     for i in range(n_cpus):
         if (os.path.isfile(f'{path}/top_five_processes_cpu{i}.csv')):
