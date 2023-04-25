@@ -226,8 +226,8 @@ do
 
     # Format output data to csv
     echo -n "Formatting output to csv..."
-    touch $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_time.csv
-    touch $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_percent.csv
+    sudo -u $SUDO_USER touch $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_time.csv
+    sudo -u $SUDO_USER touch $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/idle_percent.csv
     
     # Format perf stat
     sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt | grep "seconds time elapsed" | awk '{print $1}' > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat_time.csv
