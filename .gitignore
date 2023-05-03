@@ -2,6 +2,7 @@ output/
 .vscode/
 FlameGraph/
 *.txt
+!requirements.txt
 *.bin
 *.data
 *.data.old
