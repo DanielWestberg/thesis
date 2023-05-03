@@ -520,6 +520,24 @@ def main(argv):
         plt.ylabel('Relative memory (%)')
         plt.title(f'pidstat 1 -r | grep {process_name} (and subthreads)')        
 
+    if (os.path.isfile(f'{path}/sar_r.csv')):
+        sar_r_headers = ['Run', 'Time', 'kbmemfree', 'kbavail', 'kbmemused', '"%"memused', 'kbbuffers', 'kbcached', 'kbcommit', '"%"commit', 'kbactive', 'kbinact', 'kbdirty', 'kbanonpg', 'kbslab', 'kbkstack', 'kbpgtbl', 'kbvmused']
+        sar_r_df = pd.read_csv(f'{path}/sar_r.csv', verbose=True, names=sar_r_headers)
+        sar_r_df['Time'] = pd.to_datetime(sar_r_df['Time'])
+        sar_r_df['seconds'] = sar_r_df['Time'].dt.strftime("%H:%M:%S")
+        sar_r_df.set_index('Time')
+        style_list = []
+        for n in range(len(sar_r_df.columns) - 2):
+            style_list.append(style_options[n % len(style_options)])
+        sar_r_df.plot(kind='line', style=style_list, markevery=5, x='seconds', y=['kbmemfree', 'kbavail', 'kbmemused', 'kbbuffers', 'kbcached', 'kbcommit', 'kbactive', 'kbinact', 'kbdirty', 'kbanonpg', 'kbslab', 'kbkstack', 'kbpgtbl', 'kbvmused'])
+        plt.xlabel('Time (hour:minute:second)')
+        plt.ylabel('Size (kB)')
+        plt.title('sar -r ALL 1')
+        sar_r_df.plot(kind='line', x='seconds', y=['"%"memused', '"%"commit'], ylim=[0, 110])
+        plt.xlabel('Time (hour:minute:second)')
+        plt.ylabel('Percentage (%)')
+        plt.title('sar -r ALL 1')
+
     if (os.path.isfile(f'{path}/iostat_d.csv')):
         iostat_d_headers = ['Run', 'Date', 'Time', 'Device', 'tps', 'kB_read/s', 'kB_wrtn/s', 'kB_dscrded/s', 'kB_read', 'kB_wrtn', 'kB_dscrded']
         iostat_d_df = pd.read_csv(f'{path}/iostat_d.csv', verbose=True, names=iostat_d_headers)

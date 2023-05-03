@@ -112,16 +112,14 @@ do
     then
         # Start observability tools, store output in new dir
         echo -n "Starting observability tools..."
-        vmstat -t -w 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt &
+        vmstat -tw 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt &
         VMSTAT_PID=$!
+        sar -r ALL 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_raw.txt &
+        SAR_R_PID=$!
         pidstat 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt &
         PIDSTAT_PID=$!
         pidstat 1 -r > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt &
         PIDSTAT_MEM_PID=$!
-        iostat -txd -p sda 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/iostat_xd_raw.txt &
-        IOSTAT_PID=$!
-        iostat -td -p sda 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/iostat_d_raw.txt &
-        IOSTATD_PID=$!
 
         if [[ $ALL_CPUS = 1 ]]
         then
@@ -184,7 +182,7 @@ do
     if [[ $i != $DISABLE_OBSERVE_ITER ]]
     then
         echo -n "Stopping observability tools..."
-        kill $PERF_PID $PERF_SCHED_PID $VMSTAT_PID $MPSTAT0PID $MPSTAT1PID $MPSTAT2PID $MPSTAT3PID $PIDSTAT_PID $PIDSTAT_MEM_PID $IOSTAT_PID $IOSTATD_PID
+        kill $PERF_PID $PERF_SCHED_PID $VMSTAT_PID $SAR_R_PID $PIDSTAT_PID $PIDSTAT_MEM_PID $IOSTAT_PID $IOSTATD_PID
         echo "done"
     fi
 
@@ -246,12 +244,20 @@ do
     # Format vmstat
     sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt | sed 's/\s\+/,/g' | egrep -v "procs|buff" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/vmstat.csv
     sed -i -e "s/^/$i/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/vmstat.csv    
+    echo "$i" >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/vmstat.csv
     
+    # Format sar
+    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_raw.txt | sed 's/\s\+/,/g' | egrep -v "Linux|%" | grep . > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r.csv
+    sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r.csv
+    echo "$i" >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r.csv
+
     # Format pidstat
     sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | grep $PROCESS_NAME | egrep -v "Linux|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
     sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
+    echo "$i" >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
     sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt | sed 's/\s\+/,/g' | egrep "$PROCESS_NAME$EGREP_PROCESS_PID" | egrep -v "Linux|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
     sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
+    echo "$i" >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
     
     if [[ $PROCESS_NAME = "thesis_app" ]]
     then
@@ -306,6 +312,7 @@ do
 
     # Append to file containing all iterations
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/vmstat.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/vmstat.csv
+    sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/sar_r.csv
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat.csv
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat_mem.csv
     
