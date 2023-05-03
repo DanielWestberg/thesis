@@ -1,6 +1,7 @@
 # Performance evaluation tool
 
 ## Setup
+
 1. Run `git clone https://github.com/DanielWestberg/thesis.git`
 2. Run `cd thesis`
 3. Run `sudo apt install -y linux-tools-common linux-tools-generic sysstat stress`
@@ -12,6 +13,7 @@
 You might need to install more tools in order for the script to work.
 
 ## config.json explanation
+
 <pre>
 "process_name":     The process to be observed
 "app_path":         Absolute path to the application. Necessary if run command is an executable
@@ -27,8 +29,10 @@ You might need to install more tools in order for the script to work.
 </pre>
 
 ## Only display data
-Run `python3 score.py 'run_path' 'process_name' 'n_cpus' 'plot_graphs'` to see the data for a specific run, where
-* `'run_path'` is the path to the outputs of the specific run, e.g. `/home/user/thesis/output/20230101_010101`
-* `'process_name'` is the name of the process to be observed, same as in config.json
-* `'n_cpus'` is the number of CPUs used (not just by the app) by the computer during the application's runtime
-* `'plot_graphs'` is wheter or not the python program should plot graphs or not, specified by either `yes` or `no`
+
+Run `python3 score.py 'run_path' 'process_name' 'n_cpus' 'plot_graphs'` to see the data for a specific run, either all iterations or a single one, where
+
+- `'run_path'` is the path to the outputs of the specific run, e.g. `/home/user/thesis/output/20230101_010101` or `/home/user/thesis/output/20230101_010101/2`
+- `'process_name'` is the name of the process to be observed, same as in config.json
+- `'n_cpus'` is the number of CPUs used (not just by the app) by the computer during the application's runtime
+- `'plot_graphs'` is wheter or not the python program should plot graphs or not, specified by either `yes` or `no`
