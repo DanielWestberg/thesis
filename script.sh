@@ -112,13 +112,13 @@ do
     then
         # Start observability tools, store output in new dir
         echo -n "Starting observability tools..."
-        vmstat -tw 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt &
+        vmstat -twn 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt &
         VMSTAT_PID=$!
         sar -r ALL 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_raw.txt &
         SAR_R_PID=$!
-        pidstat 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt &
+        pidstat 1 -h > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt &
         PIDSTAT_PID=$!
-        pidstat 1 -r > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt &
+        pidstat 1 -hr > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt &
         PIDSTAT_MEM_PID=$!
 
         if [[ $ALL_CPUS = 1 ]]
