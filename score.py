@@ -129,7 +129,7 @@ def main(argv):
 
 
             # Get CPUs used
-            row1_cpus = cpus_used_df.iloc[[0]]
+            row1_cpus = cpus_used_df.iloc[[run_iter-1]]
 
             cpus_used = row1_cpus['CPUs_used'].item().replace("[", "").replace("]", "")
 
@@ -159,11 +159,8 @@ def main(argv):
             ipc = perf_stat_ic_df["ipc"].item()
 
             # CPU time calculations
-            t_ideal = 0
-            t_with_stalls = 0
-            for cpu in cpus_used:
-                t_ideal += (cycles - cycle_stalls_total)*Ts[cpu]
-                t_with_stalls += cycles*Ts[cpu]
+            t_ideal = (cycles - cycle_stalls_total)*Ts[0]
+            t_with_stalls = cycles*Ts[0]
             slowdown = (wall_time/t_ideal - 1) * 100
 
             tools_dfs = []
@@ -185,6 +182,8 @@ def main(argv):
                 tot_cpu_utils[cpu] = runtime_tot_cpu_df[f'cpu {cpu}'].iloc[[0]]['test'].item() / tot_plus_idle[cpu] * 100
                 app_cpu_utils[cpu] = tot_runtime_app_cpu[f'cpu {cpu}'] / runtime_tot_cpu_df[f'cpu {cpu}'].iloc[[0]]['test'].item() * 100
                 app_cpu_utils[cpu + n_cpus] = tot_runtime_app_cpu[f'cpu {cpu}'] / tot_plus_idle[cpu] * 100        
+                if (cpu in cpus_used and app_cpu_utils[cpu] == 0.00):
+                    cpus_used.remove(cpu)
                 if (cpu in cpus_used):
                     app_mean[0] += app_cpu_utils[cpu]
                     app_mean[1] += app_cpu_utils[cpu + n_cpus]

@@ -310,6 +310,7 @@ do
     
     # Append to file containing all iterations
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/app_outputs.csv
+    echo " " >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/cpus_used.csv
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/cpus_used.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/cpus_used.csv
 
     # Append to file containing all iterations
