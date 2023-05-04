@@ -116,6 +116,8 @@ do
         VMSTAT_PID=$!
         sar -r ALL 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_raw.txt &
         SAR_R_PID=$!
+        sar -m ALL 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_m_raw.txt &
+        SAR_M_PID=$!
         pidstat 1 -h > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt &
         PIDSTAT_PID=$!
         pidstat 1 -hr > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt &
@@ -182,7 +184,7 @@ do
     if [[ $i != $DISABLE_OBSERVE_ITER ]]
     then
         echo -n "Stopping observability tools..."
-        kill $PERF_PID $PERF_SCHED_PID $VMSTAT_PID $SAR_R_PID $PIDSTAT_PID $PIDSTAT_MEM_PID $IOSTAT_PID $IOSTATD_PID
+        kill $PERF_PID $PERF_SCHED_PID $VMSTAT_PID $SAR_R_PID $SAR_M_PID $PIDSTAT_PID $PIDSTAT_MEM_PID $IOSTAT_PID $IOSTATD_PID
         echo "done"
     fi
 
