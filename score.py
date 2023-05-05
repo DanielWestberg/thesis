@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import pandas as pd
 import matplotlib.pyplot as plt
+import webbrowser
 import os
 import sys
 
@@ -385,11 +386,6 @@ def main(argv):
     old_stdout = sys.stdout
     sys.stdout = f
 
-    # for i, dir in enumerate(os.walk(path)):
-    #     if (i == 0):
-    #         continue
-    #     os.system(f'google-chrome {dir[0]}/perf.svg')
-
     style_options = ['+-','o-','.--','s:']
     
     if (all_iterations):
@@ -464,6 +460,9 @@ def main(argv):
             plt.xlabel('run iteration')
             plt.ylabel('runtime')
             plt.title('thesis_app runtimes')
+        
+    else:
+        webbrowser.open(f"{path}/perf.svg")
     
     if (os.path.isfile(f'{path}/vmstat.csv')):
         vmstat_headers = ['Run', 'runnable processes', 'ps blckd wait for I/O', 'tot swpd used', 'free (kB)', 'buff (kB)', 'cache (kB)', 'mem swapped in/s', 'mem swapped out/s', 'from block device (KiB/s)', 'to block device (KiB/s)', 'interrupts/s', 'cxt switch/s', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time', 'Date', 'Time']
