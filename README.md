@@ -26,6 +26,7 @@ You might need to install more tools in order for the script to work.
 "all_cpus":         "yes" or "no". If "yes", the process will run on all CPUs and ignore the CPU isolation
 "plot_graphs":      "yes" or "no". If "yes", graphs containing data over the application's runtime will be displayed
 "n_iterations":     Number of iterations to perform the run command
+"sleep":            Number of seconds to wait between iterations
 </pre>
 
 ## Only display data

@@ -15,6 +15,7 @@ APP_ISOL_CPU=$(echo $CONFIG | jq '.cpu_isolation')
 ALL_CPUS=$(echo $CONFIG | jq '.all_cpus' | tr -d '"')
 PLOT_GRAPHS=$(echo $CONFIG | jq '.plot_graphs' | tr -d '"')
 ITERATIONS=$(echo $CONFIG | jq '.n_iterations' | tr -d '"')
+SLEEP=$(echo $CONFIG | jq '.sleep' | tr -d '"')
 
 $PRE_RUN_COMMAND
 PROCESS_PID=""
@@ -325,6 +326,8 @@ do
     rm $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data
     rm $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf.data
     echo "done"
+
+    sleep $SLEEP
 done
 
 echo -n "Resetting CPU isolations..."

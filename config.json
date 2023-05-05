@@ -9,5 +9,6 @@
   "cpu_isolation": 1,
   "all_cpus": "no",
   "plot_graphs": "yes",
-  "n_iterations": 150
+  "n_iterations": 150,
+  "sleep": 0
 }
