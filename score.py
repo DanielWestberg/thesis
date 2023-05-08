@@ -165,7 +165,7 @@ def main(argv):
             slowdown = (wall_time/t_ideal - 1) * 100
 
             tools_dfs = []
-            tools = "pidstat|perf|vmstat|mpstat|iostat"
+            tools = "pidstat|perf|vmstat|mpstat|iostat|sar"
 
             tools_cpu_time = [0 for i in range(n_cpus)]
             tools_cpu_utils = [0 for i in range(n_cpus*2)]
