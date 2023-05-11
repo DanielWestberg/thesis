@@ -20,6 +20,7 @@ def main(argv):
     process_name = argv[1]
     n_cpus = int(argv[2])
     plot_graphs = (argv[3] == "yes")
+    verbose = (argv[4] == "yes")
     f = open(os.devnull, 'w')
 
     print("Loading stats, please wait...")
@@ -388,7 +389,7 @@ def main(argv):
         exit()
 
     old_stdout = sys.stdout
-    sys.stdout = f
+    # sys.stdout = f
 
     style_options = ['+-','o-','.--','s:']
     
@@ -397,6 +398,7 @@ def main(argv):
         if (os.path.isfile(f'{path}/times.csv')):
             times_headers = ['Run', 'Ideal CPU time', 'Stall time', 'Ideal CPU time with stall cycles', 'Actual CPU time', 'Wall time']
             times_df = pd.read_csv(f'{path}/times.csv', names=times_headers)
+            times_df['Run'] = times_df['Run'].astype("string") if times_df.shape[0] < 6 else times_df['Run']
             times_df.set_index('Run')
             times_df.plot(kind='line', x='Run', y=['Wall time'], ylim=[0, times_df['Wall time'].max()*1.1])
             plt.xlabel('Run iteration')
@@ -408,37 +410,39 @@ def main(argv):
             plt.title(f'Estimated and measured times per run iteration')
         
         if (os.path.isfile(f'{path}/scores.csv')):
-            # scores_headers = ['Run', 'ideal/wall', 'CPU stall score', 'incl. stalls/wall', 'incl. stalls/actual', 'CPU noise score', 'CPU utilization score', 'CPU idle score']
-            # scores_headers = ['Run', 'CPU stall score', 'CPU noise score', 'CPU utilization score', 'CPU idle score']
             scores_headers = ['Run', 'CPU time score', 'CPU utilization score', 'CPU idle score']
             scores_df = pd.read_csv(f'{path}/scores.csv', names=scores_headers)
+            scores_df['Run'] = scores_df['Run'].astype("string") if scores_df.shape[0] < 6 else scores_df['Run']
             scores_df.set_index('Run')
             scores_df.plot(kind='line', x='Run', y=['CPU time score', 'CPU utilization score', 'CPU idle score'], ylim=[0, 110])
             plt.xlabel('Run iteration')
             plt.ylabel('Score')
             plt.title(f'Scores per run iteration')
         
-        if (os.path.isfile(f'{path}/misses_percent.csv')):
+        if (os.path.isfile(f'{path}/misses_percent.csv') and verbose):
             misses_percent_headers = ['Run', 'Cache misses percentage', 'Branch misses percentage']
             misses_percent_df = pd.read_csv(f'{path}/misses_percent.csv', names=misses_percent_headers)
+            misses_percent_df['Run'] = misses_percent_df['Run'].astype("string") if misses_percent_df.shape[1] < 6 else misses_percent_df['Run']
             misses_percent_df.set_index('Run')
             misses_percent_df.plot(kind='line', x='Run', y=['Cache misses percentage', 'Branch misses percentage'], ylim=[0, 110])
             plt.xlabel('Run iteration')
             plt.ylabel('Miss %')
             plt.title(f'Cache and branch misses %')
         
-        if (os.path.isfile(f'{path}/hw_interrupts.csv')):
+        if (os.path.isfile(f'{path}/hw_interrupts.csv') and verbose):
             hw_interrupts_headers = ['Run', 'HW interrupts']
             hw_interrupts_df = pd.read_csv(f'{path}/hw_interrupts.csv', names=hw_interrupts_headers)
+            hw_interrupts_df['Run'] = hw_interrupts_df['Run'].astype("string") if hw_interrupts_df.shape[0] < 6 else hw_interrupts_df['Run']
             hw_interrupts_df.set_index('Run')
             hw_interrupts_df.plot(kind='line', x='Run', y=['HW interrupts'], ylim=[0, hw_interrupts_df['HW interrupts'].max()*1.1])
             plt.xlabel('Run iteration')
             plt.ylabel('HW interrupt counts')
             plt.title(f'Hardware interrupts')
         
-        if (os.path.isfile(f'{path}/ipc.csv')):
+        if (os.path.isfile(f'{path}/ipc.csv') and verbose):
             ipc_headers = ['Run', 'IPC']
             ipc_df = pd.read_csv(f'{path}/ipc.csv', names=ipc_headers)
+            ipc_df['Run'] = ipc_df['Run'].astype("string") if ipc_df.shape[0] < 6 else ipc_df['Run']
             ipc_df.set_index('Run')
             ipc_df.plot(kind='line', x='Run', y=['IPC'], ylim=[0, ipc_df['IPC'].max()*1.1])
             plt.xlabel('Run iteration')
@@ -446,25 +450,129 @@ def main(argv):
             plt.title(f'Instructions per cycle')
         
         for i in range(n_cpus):
-            if (os.path.isfile(f'{path}/top_five_processes_cpu{i}.csv')):
+            if (os.path.isfile(f'{path}/top_five_processes_cpu{i}.csv') and verbose):
                 top_five_processes_headers = ['Run', 'cpu', 'process', 'run-time (ms)']
                 top_five_processes_df = pd.read_csv(f'{path}/top_five_processes_cpu{i}.csv', names=top_five_processes_headers)
+                top_five_processes_df['Run'] = top_five_processes_df['Run'].astype("string") if top_five_processes_df.shape[0] < 6 else top_five_processes_df['Run']
                 top_five_processes_df = top_five_processes_df.groupby(['Run', 'process']).agg({'cpu': 'first', 'run-time (ms)': 'sum'}).reset_index()
                 top_five_processes_df = top_five_processes_df.pivot(index='Run', columns='process', values='run-time (ms)')
                 style_list = []
-                for n in range(len(top_five_processes_df.columns)):
+                for n in range(top_five_processes_df.shape[1]):
                     style_list.append(style_options[n % len(style_options)])
                 markevery = 2
-                if (len(top_five_processes_df.columns) > 50):
-                    markevery=(len(top_five_processes_df.columns) // 10)
-                if (len(top_five_processes_df.columns) < 10):
+                if (top_five_processes_df.shape[0] > 50):
+                    markevery=(top_five_processes_df.shape[0] // 10)
+                if (top_five_processes_df.shape[0] < 10):
                     markevery=1
                 top_five_processes_df.plot(kind='line', style=style_list, markevery=markevery)
                 plt.xlabel('Run iteration')
                 plt.ylabel('Runtime (ms)')
                 plt.title(f'Top <=5 process runtimes for each iteration in CPU {i}')
 
+        if (os.path.isfile(f'{path}/pidstat_average.csv')):
+            pidstat_average_headers = ['Run', 'Average', 'UID', 'PID', '"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU', 'CPU', 'Command']
+            pidstat_average_df = pd.read_csv(f'{path}/pidstat_average.csv', verbose=True, names=pidstat_average_headers)
+            pidstat_average_df['Run'] = pidstat_average_df['Run'].astype("string") if pidstat_average_df.shape[0] < 6 else pidstat_average_df['Run']
+            pidstat_average_df = pidstat_average_df.groupby(['Run', 'Command']).agg({'UID': 'first', 'PID': 'first', '"%"usr': 'sum', '"%"system': 'sum', '"%"guest': 'sum', '"%"wait': 'sum', '"%"CPU': 'sum'}).reset_index()
+            pidstat_average_df = pidstat_average_df.pivot(index='Run', columns='Command', values='"%"CPU')
+            pidstat_average_df = pidstat_average_df.fillna(0)
+
+            # Compute the mean of each column
+            column_means = pidstat_average_df.mean()
+
+            # Sort the column names based on their mean values
+            column_names = column_means.sort_values(ascending=False).index.tolist()
+
+            # Reorder the columns based on the sorted names
+            pidstat_average_df = pidstat_average_df[column_names]
+
+            # Keep only the 10 first columns
+            pidstat_average_df = pidstat_average_df.iloc[:, : 10]
+
+            style_list = []
+            for n in range(pidstat_average_df.shape[1]):
+                style_list.append(style_options[n % len(style_options)])
+            markevery = 2
+            if (pidstat_average_df.shape[0] > 50):
+                markevery = (pidstat_average_df.shape[0] // 10)
+            if (pidstat_average_df.shape[0] < 10):
+                markevery = 1
+            pidstat_average_df.plot(kind='line', style=style_list, markevery=markevery)
+            plt.xlabel('Run iteration')
+            plt.ylabel('Relative CPU usage (%) (ms)')
+            plt.title(f'CPU usage of top 10 running processes for each iteration across all CPUs')
+
+        if (os.path.isfile(f'{path}/pidstat_mem_average.csv')):
+            pidstat_mem_average_headers = ['Run', 'Average', 'UID', 'PID', 'minflt/s', 'majflt/s', 'VSZ (kB)', 'RSS (kB)', '"%"MEM', 'Command']
+
+            # %MEM
+            pidstat_mem_average_df = pd.read_csv(f'{path}/pidstat_mem_average.csv', verbose=True, names=pidstat_mem_average_headers)
+            pidstat_mem_average_df['Run'] = pidstat_mem_average_df['Run'].astype("string") if pidstat_mem_average_df.shape[0] < 6 else pidstat_mem_average_df['Run']
+            pidstat_mem_average_df = pidstat_mem_average_df.groupby(['Run', 'Command']).agg({'UID': 'first', 'PID': 'first', 'minflt/s': 'mean', 'majflt/s': 'mean', 'VSZ (kB)': 'sum', 'RSS (kB)': 'sum', '"%"MEM': 'sum'}).reset_index()
+            pidstat_mem_average_df = pidstat_mem_average_df.pivot(index='Run', columns='Command', values='"%"MEM')
+            pidstat_mem_average_df = pidstat_mem_average_df.fillna(0)
+
+            # Compute the mean of each column
+            column_means = pidstat_mem_average_df.mean()
+
+            # Sort the column names based on their mean values
+            column_names = column_means.sort_values(ascending=False).index.tolist()
+
+            # Reorder the columns based on the sorted names
+            pidstat_mem_average_df = pidstat_mem_average_df[column_names]
+
+            # Keep only the 10 first columns
+            pidstat_mem_average_df = pidstat_mem_average_df.iloc[:, : 10]
+
+            style_list = []
+            for n in range(pidstat_mem_average_df.shape[1]):
+                style_list.append(style_options[n % len(style_options)])
+            markevery = 2
+            if (pidstat_mem_average_df.shape[0] > 50):
+                markevery = (pidstat_mem_average_df.shape[0] // 10)
+            if (pidstat_mem_average_df.shape[0] < 10):
+                markevery = 1
+            pidstat_mem_average_df.plot(kind='line', style=style_list, markevery=markevery)
+            plt.xlabel('Run iteration')
+            plt.ylabel('Relative memory usage (%)')
+            plt.title(f'Relative memory usage of top 10 running processes for each iteration across all CPUs')
+
+            if (verbose):
+                # VSZ
+                pidstat_mem_average_df = pd.read_csv(f'{path}/pidstat_mem_average.csv', verbose=True, names=pidstat_mem_average_headers)
+                pidstat_mem_average_df['Run'] = pidstat_mem_average_df['Run'].astype("string") if pidstat_mem_average_df.shape[0] < 6 else pidstat_mem_average_df['Run']
+                pidstat_mem_average_df = pidstat_mem_average_df.groupby(['Run', 'Command']).agg({'UID': 'first', 'PID': 'first', 'minflt/s': 'mean', 'majflt/s': 'mean', 'VSZ (kB)': 'sum', 'RSS (kB)': 'sum', '"%"MEM': 'sum'}).reset_index()
+                pidstat_mem_average_df = pidstat_mem_average_df.pivot(index='Run', columns='Command', values='VSZ (kB)')
+                pidstat_mem_average_df = pidstat_mem_average_df.fillna(0)
+
+                # Compute the mean of each column
+                column_means = pidstat_mem_average_df.mean()
+
+                # Sort the column names based on their mean values
+                column_names = column_means.sort_values(ascending=False).index.tolist()
+
+                # Reorder the columns based on the sorted names
+                pidstat_mem_average_df = pidstat_mem_average_df[column_names]
+
+                # Keep only the 10 first columns
+                pidstat_mem_average_df = pidstat_mem_average_df.iloc[:, : 10]
+
+                style_list = []
+                for n in range(pidstat_mem_average_df.shape[1]):
+                    style_list.append(style_options[n % len(style_options)])
+                markevery = 2
+                if (pidstat_mem_average_df.shape[0] > 50):
+                    markevery = (pidstat_mem_average_df.shape[0] // 10)
+                if (pidstat_mem_average_df.shape[0] < 10):
+                    markevery = 1
+                pidstat_mem_average_df.plot(kind='line', style=style_list, markevery=markevery)
+                plt.xlabel('Run iteration')
+                plt.ylabel('Size (kB)')
+                plt.title(f'Virtual memory usage of top 10 running processes for each iteration across all CPUs')
+
+
         if (process_name == "thesis_app"):
+            app_output_df['Run'] = app_output_df['Run'].astype("string") if app_output_df.shape[0] < 6 else app_output_df['Run']
             app_output_df.set_index('Run')
             app_output_df.plot(kind='line', x='Run', y=['Memory time', 'Disk time', 'Calc time', 'App time src'], xticks=app_output_df['Run'])
             plt.xlabel('run iteration')
@@ -472,9 +580,116 @@ def main(argv):
             plt.title('thesis_app runtimes')
         
     else:
-        webbrowser.open(f"{path}/perf.svg")
+        if (verbose):
+            webbrowser.open(f"{path}/perf.svg")
+
+        if (os.path.isfile(f'{path}/pidstat_all.csv')):
+            pidstat_all_headers = ['Time', 'UID', 'PID', '"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU', 'CPU', 'Command']
+            pidstat_all_df = pd.read_csv(f'{path}/pidstat_all.csv', verbose=True, names=pidstat_all_headers)
+            pidstat_all_df['Time'] = pd.to_datetime(pidstat_all_df['Time'])
+            pidstat_all_df['seconds'] = pidstat_all_df['Time'].dt.strftime("%H:%M:%S")
+            pidstat_all_df = pidstat_all_df.groupby(['seconds', 'Command']).agg({'UID': 'first', 'PID': 'first', '"%"usr': 'sum', '"%"system': 'sum', '"%"guest': 'sum', '"%"wait': 'sum', '"%"CPU': 'sum'}).reset_index()
+            pidstat_all_df = pidstat_all_df.pivot(index='seconds', columns='Command', values='"%"CPU')
+            pidstat_all_df = pidstat_all_df.fillna(0)
+
+            # Compute the mean of each column
+            column_means = pidstat_all_df.mean()
+
+            # Sort the column names based on their mean values
+            column_names = column_means.sort_values(ascending=False).index.tolist()
+
+            # Reorder the columns based on the sorted names
+            pidstat_all_df = pidstat_all_df[column_names]
+
+            # Keep only the 10 first columns
+            pidstat_all_df = pidstat_all_df.iloc[:, : 10]
+
+            style_list = []
+            for n in range(pidstat_all_df.shape[1]):
+                style_list.append(style_options[n % len(style_options)])
+            markevery = 2
+            if (pidstat_all_df.shape[0] > 50):
+                markevery = (pidstat_all_df.shape[0] // 10)
+            if (pidstat_all_df.shape[0] < 10):
+                markevery = 1
+            pidstat_all_df.plot(kind='line', style=style_list, markevery=markevery)
+            plt.xlabel('Time (hour:minute:second)')
+            plt.ylabel('Relative CPU usage (%) (ms)')
+            plt.title(f'CPU usage of top 10 running processes across all CPUs')
+
+        if (os.path.isfile(f'{path}/pidstat_mem_all.csv')):
+            pidstat_mem_all_headers = ['Time', 'UID', 'PID', 'minflt/s', 'majflt/s', 'VSZ (kB)', 'RSS (kB)', '"%"MEM', 'Command']
+            
+            # %MEM
+            pidstat_mem_all_df = pd.read_csv(f'{path}/pidstat_mem_all.csv', verbose=True, names=pidstat_mem_all_headers)
+            pidstat_mem_all_df['Time'] = pd.to_datetime(pidstat_mem_all_df['Time'])
+            pidstat_mem_all_df['seconds'] = pidstat_mem_all_df['Time'].dt.strftime("%H:%M:%S")
+            pidstat_mem_all_df = pidstat_mem_all_df.groupby(['seconds', 'Command']).agg({'UID': 'first', 'PID': 'first', 'minflt/s': 'mean', 'majflt/s': 'mean', 'VSZ (kB)': 'sum', 'RSS (kB)': 'sum', '"%"MEM': 'sum'}).reset_index()
+            pidstat_mem_all_df = pidstat_mem_all_df.pivot(index='seconds', columns='Command', values='"%"MEM')
+            pidstat_mem_all_df = pidstat_mem_all_df.fillna(0)
+
+            # Compute the mean of each column
+            column_means = pidstat_mem_all_df.mean()
+
+            # Sort the column names based on their mean values
+            column_names = column_means.sort_values(ascending=False).index.tolist()
+
+            # Reorder the columns based on the sorted names
+            pidstat_mem_all_df = pidstat_mem_all_df[column_names]
+
+            # Keep only the 10 first columns
+            pidstat_mem_all_df = pidstat_mem_all_df.iloc[:, : 10]
+
+            style_list = []
+            for n in range(pidstat_mem_all_df.shape[1]):
+                style_list.append(style_options[n % len(style_options)])
+            markevery = 2
+            if (pidstat_mem_all_df.shape[0] > 50):
+                markevery = (pidstat_mem_all_df.shape[0] // 10)
+            if (pidstat_mem_all_df.shape[0] < 10):
+                markevery = 1
+            pidstat_mem_all_df.plot(kind='line', style=style_list, markevery=markevery)
+            plt.xlabel('Time (hour:minute:second)')
+            plt.ylabel('Relative memory usage (%)')
+            plt.title(f'Memory usage of top 10 running processes across all CPUs')
+
+            if (verbose):
+                # VSZ
+                pidstat_mem_all_df = pd.read_csv(f'{path}/pidstat_mem_all.csv', verbose=True, names=pidstat_mem_all_headers)
+                pidstat_mem_all_df['Time'] = pd.to_datetime(pidstat_mem_all_df['Time'])
+                pidstat_mem_all_df['seconds'] = pidstat_mem_all_df['Time'].dt.strftime("%H:%M:%S")
+                pidstat_mem_all_df = pidstat_mem_all_df.groupby(['seconds', 'Command']).agg({'UID': 'first', 'PID': 'first', 'minflt/s': 'mean', 'majflt/s': 'mean', 'VSZ (kB)': 'sum', 'RSS (kB)': 'sum', '"%"MEM': 'sum'}).reset_index()
+                pidstat_mem_all_df = pidstat_mem_all_df.pivot(index='seconds', columns='Command', values='VSZ (kB)')
+                pidstat_mem_all_df = pidstat_mem_all_df.fillna(0)
+
+                # Compute the mean of each column
+                column_means = pidstat_mem_all_df.mean()
+
+                # Sort the column names based on their mean values
+                column_names = column_means.sort_values(ascending=False).index.tolist()
+
+                # Reorder the columns based on the sorted names
+                pidstat_mem_all_df = pidstat_mem_all_df[column_names]
+
+                # Keep only the 10 first columns
+                pidstat_mem_all_df = pidstat_mem_all_df.iloc[:, : 10]
+
+                style_list = []
+                for n in range(pidstat_mem_all_df.shape[1]):
+                    style_list.append(style_options[n % len(style_options)])
+                markevery = 2
+                if (pidstat_mem_all_df.shape[0] > 50):
+                    markevery = (pidstat_mem_all_df.shape[0] // 10)
+                if (pidstat_mem_all_df.shape[0] < 10):
+                    markevery = 1
+                pidstat_mem_all_df.plot(kind='line', style=style_list, markevery=markevery)
+                plt.xlabel('Time (hour:minute:second)')
+                plt.ylabel('Size (kB)')
+                plt.title(f'Virtual memory usage of top 10 running processes for each iteration across all CPUs')
+
+
     
-    if (os.path.isfile(f'{path}/vmstat.csv')):
+    if (os.path.isfile(f'{path}/vmstat.csv') and verbose):
         vmstat_headers = ['Run', 'runnable processes', 'ps blckd wait for I/O', 'tot swpd used', 'free (kB)', 'buff (kB)', 'cache (kB)', 'mem swapped in/s', 'mem swapped out/s', 'from block device (KiB/s)', 'to block device (KiB/s)', 'interrupts/s', 'cxt switch/s', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time', 'Date', 'Time']
         vmstat_df = pd.read_csv(f'{path}/vmstat.csv', verbose=True, names=vmstat_headers)
         vmstat_df['Time'] = pd.to_datetime(vmstat_df['Time'])
@@ -504,25 +719,8 @@ def main(argv):
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Relative time spent (%)')
         plt.title('vmstat -t -w 1 CPU')
-        # vmstat_ax7 = vmstat_df.plot(kind='line', x='seconds', y=['Run'])
-        # plt.xlabel('Time (hour:minute:second)')
-        # plt.ylabel('Run iteration')
-        # plt.title('Run iteration time')
 
-    # mpstat_df = [0 for i in range(n_cpus)]
-    # for i in range(n_cpus):
-    #     if (os.path.isfile(f'{path}/mpstat{i}.csv')):
-    #         mpstat_headers = ['Run', 'Time', 'CPU', '"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle']
-    #         mpstat_df[i] = pd.read_csv(f'{path}/mpstat{i}.csv', verbose=True, names=mpstat_headers)
-    #         mpstat_df[i]['Time'] = pd.to_datetime(mpstat_df[i]['Time'])
-    #         mpstat_df[i]['seconds'] = mpstat_df[i]['Time'].dt.strftime("%H:%M:%S")
-    #         mpstat_df[i].set_index('seconds')
-    #         mpstat_ax = mpstat_df[i].plot(kind='line', x='seconds', y=['"%"usr', '"%"nice', '"%"sys', '"%"iowait', '"%"irq', '"%"soft', '"%"steal', '"%"guest', '"%"gnice', '"%"idle'], ylim=[0, 110])
-    #         plt.xlabel('Time (hour:minute:second)')
-    #         plt.ylabel('%')
-    #         plt.title(f'mpstat -P {i} 1')
-
-    if (os.path.isfile(f'{path}/pidstat.csv')):
+    if (os.path.isfile(f'{path}/pidstat.csv') and verbose):
         pidstat_headers = ['Run', 'Time', 'UID', 'PID', '"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU', 'CPU', 'Command']
         pidstat_df = pd.read_csv(f'{path}/pidstat.csv', verbose=True, names=pidstat_headers)
         pidstat_df['Time'] = pd.to_datetime(pidstat_df['Time'])
@@ -533,7 +731,7 @@ def main(argv):
         plt.ylabel('Relative CPU usage (%)')
         plt.title(f'pidstat 1 | grep {process_name} (and subthreads)')
 
-    if (os.path.isfile(f'{path}/pidstat_mem.csv')):
+    if (os.path.isfile(f'{path}/pidstat_mem.csv') and verbose):
         pidstat_mem_headers = ['Run', 'Time', 'UID', 'PID', 'minflt/s', 'majflt/s', 'VSZ (kB)', 'RSS (kB)', '"%"MEM', 'Command']
         pidstat_mem_df = pd.read_csv(f'{path}/pidstat_mem.csv', verbose=True, names=pidstat_mem_headers)
         pidstat_mem_df['Time'] = pd.to_datetime(pidstat_mem_df['Time'])
@@ -543,14 +741,8 @@ def main(argv):
         plt.xlabel('time (hour:minute:second)')
         plt.ylabel('Size (kB)')
         plt.title(f'pidstat 1 -r | grep {process_name} (and subthreads)')
-        pidstat_mem_ax2 = pidstat_mem_df.plot(kind='line', x='seconds', y=['"%"MEM'], ylim=[0, 110])
-        plt.xlabel('Time (hour:minute:second)')
-        plt.ylabel('Relative memory usage (%)')
-        plt.title(f'pidstat 1 -r | grep {process_name} (and subthreads)')        
 
-    sys.stdout = old_stdout
-
-    if (os.path.isfile(f'{path}/sar_r.csv')):
+    if (os.path.isfile(f'{path}/sar_r.csv') and verbose):
         sar_r_headers = ['Run', 'Time', 'kbmemfree', 'kbavail', 'kbmemused', '"%"memused', 'kbbuffers', 'kbcached', 'kbcommit', '"%"commit', 'kbactive', 'kbinact', 'kbdirty', 'kbanonpg', 'kbslab', 'kbkstack', 'kbpgtbl', 'kbvmused']
         sar_r_df = pd.read_csv(f'{path}/sar_r.csv', verbose=True, names=sar_r_headers)
         sar_r_df['Time'] = pd.to_datetime(sar_r_df['Time'])
@@ -574,29 +766,6 @@ def main(argv):
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Percentage (%)')
         plt.title('sar -r ALL 1')
-
-    # if (os.path.isfile(f'{path}/iostat_d.csv')):
-    #     iostat_d_headers = ['Run', 'Date', 'Time', 'Device', 'tps', 'kB_read/s', 'kB_wrtn/s', 'kB_dscrded/s', 'kB_read', 'kB_wrtn', 'kB_dscrded']
-    #     iostat_d_df = pd.read_csv(f'{path}/iostat_d.csv', verbose=True, names=iostat_d_headers)
-    #     iostat_d_df['Time'] = pd.to_datetime(iostat_d_df['Time'])
-    #     iostat_d_df['seconds'] = iostat_d_df['Time'].dt.strftime("%H:%M:%S")
-    #     iostat_d_df.set_index('Time')
-    #     iostat_d_ax = iostat_d_df.plot(kind='line', x='seconds', y=['tps', 'kB_read/s', 'kB_wrtn/s', 'kB_dscrded/s', 'kB_read', 'kB_wrtn', 'kB_dscrded'])
-    #     plt.xlabel('Time (hour:minute:second)')
-    #     plt.ylabel('Size (kB)')
-    #     plt.title('iostat -td -p sda 1')
-
-    # if (os.path.isfile(f'{path}/iostat_xd.csv')):
-    #     iostat_xd_headers = ['Run', 'Date', 'Time', 'Device', 'read reqs per s', 'rkB/s', 'rrqm/s', '"%"rrqm', 'r_await', 'rareq-sz', 'write reqs per s', 'wkB/s', 'wrqm/s', '"%"wrqm',\
-    #                         'w_await', 'wareq-sz', 'd/s', 'dkB/s', 'drqm/s', '"%"drqm', 'd_await', 'dareq-sz', 'f/s', 'f_await', 'aqu-sz', '"%"util']
-    #     iostat_xd_df = pd.read_csv(f'{path}/iostat_xd.csv', verbose=True, names=iostat_xd_headers)
-    #     iostat_xd_df['Time'] = pd.to_datetime(iostat_xd_df['Time'])
-    #     iostat_xd_df['seconds'] = iostat_xd_df['Time'].dt.strftime("%H:%M:%S")
-    #     iostat_xd_df.set_index('seconds')
-    #     iostat_xd_ax = iostat_xd_df.plot(kind='line', x='seconds', y=['read reqs per s', 'rkB/s', 'rrqm/s', '"%"rrqm', 'r_await', 'rareq-sz', 'write reqs per s'])
-    #     plt.xlabel('Time (hour:minute:second)')
-    #     plt.ylabel('Count')
-    #     plt.title('iostat -txd -p sda 1')
     
     sys.stdout = old_stdout
 

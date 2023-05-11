@@ -14,6 +14,7 @@ NOISE_WORKERS=$(echo $CONFIG | jq '.noise_workers' | tr -d '"')
 APP_ISOL_CPU=$(echo $CONFIG | jq '.cpu_isolation')
 ALL_CPUS=$(echo $CONFIG | jq '.all_cpus' | tr -d '"')
 PLOT_GRAPHS=$(echo $CONFIG | jq '.plot_graphs' | tr -d '"')
+VERBOSE=$(echo $CONFIG | jq '.verbose' | tr -d '"')
 ITERATIONS=$(echo $CONFIG | jq '.n_iterations' | tr -d '"')
 SLEEP=$(echo $CONFIG | jq '.sleep' | tr -d '"')
 
@@ -112,17 +113,17 @@ do
 
     if [[ $i != $DISABLE_OBSERVE_ITER ]]
     then
-        # Start observability tools, store output in new dir
-        echo -n "Starting observability tools..."
+        # Start observation tools, store output in new dir
+        echo -n "Starting observation tools..."
         vmstat -twn 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/vmstat_raw.txt &
         VMSTAT_PID=$!
         sar -r ALL 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_raw.txt &
         SAR_R_PID=$!
         sar -m ALL 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_m_raw.txt &
         SAR_M_PID=$!
-        pidstat 1 -h > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt &
+        pidstat 1 > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt &
         PIDSTAT_PID=$!
-        pidstat 1 -hr > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt &
+        pidstat 1 -r > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt &
         PIDSTAT_MEM_PID=$!
 
         if [[ $ALL_CPUS = 1 ]]
@@ -139,7 +140,7 @@ do
         
         echo "done"
     else
-        echo "No observability tools"
+        echo "No observation tools"
     fi
 
     # Get cpu freq before running application
@@ -175,7 +176,7 @@ do
             -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt --pid=$PROCESS_PID &
         PERF_STAT_PID=$!
         echo "Running $RUN_COMMAND..."
-        $RUN_COMMAND
+        $RUN_COMMAND > /dev/null 2>&1
         kill -INT $PERF_STAT_PID
     fi
     echo "done"
@@ -183,11 +184,12 @@ do
     # Get cpu freq after running application
     cat /proc/cpuinfo | grep "cpu MHz" | awk '{print $4}' >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/cpu_freq.csv
 
-    # Stop observability tools
+    # Stop observation tools
     if [[ $i != $DISABLE_OBSERVE_ITER ]]
     then
-        echo -n "Stopping observability tools..."
-        kill $PERF_PID $PERF_SCHED_PID $VMSTAT_PID $SAR_R_PID $SAR_M_PID $PIDSTAT_PID $PIDSTAT_MEM_PID $IOSTAT_PID $IOSTATD_PID
+        echo -n "Stopping observation tools..."
+        kill $PERF_PID $PERF_SCHED_PID $VMSTAT_PID
+        kill -INT $SAR_R_PID $SAR_M_PID $PIDSTAT_PID $PIDSTAT_MEM_PID
         echo "done"
     fi
 
@@ -232,7 +234,9 @@ do
     rm $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf.data
     echo "done"
 
+    echo -n "Waiting for $SLEEP seconds..."
     sleep $SLEEP
+    echo "done"
 done
 
 echo -n "Resetting CPU isolations..."

@@ -7,6 +7,7 @@ CURRENT_TIME=$1
 CONFIG=$(jq '.' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/config.json)
 PROCESS_NAME=$(echo $CONFIG | jq .process_name | tr -d '"')
 PLOT_GRAPHS=$(echo $CONFIG | jq '.plot_graphs' | tr -d '"')
+VERBOSE=$(echo $CONFIG | jq '.verbose' | tr -d '"')
 ITERATIONS=$(echo $CONFIG | jq '.n_iterations' | tr -d '"')
 
 N_CPUS=$(lscpu | grep --max-count=1 "CPU(s)" | awk '{print $2}')
@@ -30,6 +31,15 @@ if test -f "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat.csv"; then
 fi
 if test -f "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat_mem.csv"; then
     rm $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat_mem.csv
+fi
+if test -f "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/sar_r_average.csv"; then
+    rm $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/sar_r_average.csv
+fi
+if test -f "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat_average.csv"; then
+    rm $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat_average.csv
+fi
+if test -f "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat_mem_average.csv"; then
+    rm $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat_mem_average.csv
 fi
 
 echo ""
@@ -61,17 +71,31 @@ do
     echo "$i" >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/vmstat.csv
     
     # Format sar
-    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_raw.txt | sed 's/\s\+/,/g' | egrep -v "Linux|%" | grep . > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r.csv
+    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_raw.txt | sed 's/\s\+/,/g' | egrep -v "Linux|Average|%" | grep . > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r.csv
     sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r.csv
     echo "$i" >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r.csv
+    
+    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_raw.txt | sed 's/\s\+/,/g' | grep "Average" | grep . > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_average.csv
+    sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_average.csv
 
     # Format pidstat
-    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | grep $PROCESS_NAME | egrep -v "Linux|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
+    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | grep $PROCESS_NAME | egrep -v "Linux|Average|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
     sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
     echo "$i" >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
-    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt | sed 's/\s\+/,/g' | egrep "$PROCESS_NAME$EGREP_PROCESS_PID" | egrep -v "Linux|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
+    
+    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | egrep -v "Linux|Average|%" | grep . > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_all.csv
+    
+    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | grep "Average" | egrep -v "Linux|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_average.csv
+    sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_average.csv
+    
+    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt | sed 's/\s\+/,/g' | egrep "$PROCESS_NAME$EGREP_PROCESS_PID" | egrep -v "Linux|Average|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
     sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
     echo "$i" >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv
+
+    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt | sed 's/\s\+/,/g' | egrep -v "Linux|Average|%" | grep . > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_all.csv
+
+    sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_raw.txt | sed 's/\s\+/,/g' | grep "Average" | egrep -v "Linux|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_average.csv
+    sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_average.csv
     
     if [[ $PROCESS_NAME = "thesis_app" ]]
     then
@@ -133,8 +157,11 @@ do
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/sar_r.csv
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat.csv
     sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat_mem.csv
+    sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_average.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/sar_r_average.csv
+    sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_average.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat_average.csv
+    sudo cat $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_mem_average.csv >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/pidstat_mem_average.csv
     
 done
 echo "done"
 
-sudo -u $SUDO_USER python3 $SCRIPT_DIR/score.py "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME" $PROCESS_NAME $N_CPUS $PLOT_GRAPHS
+sudo -u $SUDO_USER python3 $SCRIPT_DIR/score.py "$SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME" $PROCESS_NAME $N_CPUS $PLOT_GRAPHS $VERBOSE
