@@ -473,7 +473,7 @@ def main(argv):
         if (os.path.isfile(f'{path}/pidstat_average.csv')):
             pidstat_average_headers = ['Run', 'Average', 'UID', 'PID', '"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU', 'CPU', 'Command']
             pidstat_average_df = pd.read_csv(f'{path}/pidstat_average.csv', verbose=True, names=pidstat_average_headers)
-            pidstat_average_df['Run'] = pidstat_average_df['Run'].astype("string") if pidstat_average_df.shape[0] < 6 else pidstat_average_df['Run']
+            pidstat_average_df['Run'] = pidstat_average_df['Run'].astype("string") if pidstat_average_df['Run'].nunique() < 6 else pidstat_average_df['Run']
             pidstat_average_df = pidstat_average_df.groupby(['Run', 'Command']).agg({'UID': 'first', 'PID': 'first', '"%"usr': 'sum', '"%"system': 'sum', '"%"guest': 'sum', '"%"wait': 'sum', '"%"CPU': 'sum'}).reset_index()
             pidstat_average_df = pidstat_average_df.pivot(index='Run', columns='Command', values='"%"CPU')
             pidstat_average_df = pidstat_average_df.fillna(0)
@@ -508,7 +508,7 @@ def main(argv):
 
             # %MEM
             pidstat_mem_average_df = pd.read_csv(f'{path}/pidstat_mem_average.csv', verbose=True, names=pidstat_mem_average_headers)
-            pidstat_mem_average_df['Run'] = pidstat_mem_average_df['Run'].astype("string") if pidstat_mem_average_df.shape[0] < 6 else pidstat_mem_average_df['Run']
+            pidstat_mem_average_df['Run'] = pidstat_mem_average_df['Run'].astype("string") if pidstat_mem_average_df['Run'].nunique() < 6 else pidstat_mem_average_df['Run']
             pidstat_mem_average_df = pidstat_mem_average_df.groupby(['Run', 'Command']).agg({'UID': 'first', 'PID': 'first', 'minflt/s': 'mean', 'majflt/s': 'mean', 'VSZ (kB)': 'sum', 'RSS (kB)': 'sum', '"%"MEM': 'sum'}).reset_index()
             pidstat_mem_average_df = pidstat_mem_average_df.pivot(index='Run', columns='Command', values='"%"MEM')
             pidstat_mem_average_df = pidstat_mem_average_df.fillna(0)
