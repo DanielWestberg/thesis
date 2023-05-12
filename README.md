@@ -31,9 +31,11 @@ You might need to install more tools in order for the script to work.
 
 ## Only display data
 
-Run `python3 score.py 'run_path' 'process_name' 'n_cpus' 'plot_graphs'` to see the data for a specific run, either all iterations or a single one, where
+Run `python3 score.py 'run_path' 'process_name' 'n_cpus' 'plot_graphs' 'verbose' 'only_graphs'` to see the data for a specific run, either all iterations or a single one, where
 
 - `'run_path'` is the path to the outputs of the specific run, e.g. `/home/user/thesis/output/20230101_010101` or `/home/user/thesis/output/20230101_010101/2`
 - `'process_name'` is the name of the process to be observed, same as in config.json
 - `'n_cpus'` is the number of CPUs used (not just by the app) by the computer during the application's runtime
-- `'plot_graphs'` is wheter or not the python program should plot graphs or not, specified by either `yes` or `no`
+- `'plot_graphs'` is wheter or not the python program should plot graphs, specified by either `yes` or `no`
+- `'verbose'` is wheter or not all graphs should be plotted, specified by either `yes` or `no`
+- `'only_graphs'` is wheter or not only graphs should be plotted, i.e no recalculating/reformatting of the data, specified by either `yes` or `no`
