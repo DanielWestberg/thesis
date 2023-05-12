@@ -21,12 +21,13 @@ def main(argv):
     n_cpus = int(argv[2])
     plot_graphs = (argv[3] == "yes")
     verbose = (argv[4] == "yes")
+    only_graphs = (argv[5] == "yes")
     f = open(os.devnull, 'w')
 
     print("Loading stats, please wait...")
     old_stdout = sys.stdout
-
-    if (all_iterations):
+    
+    if (all_iterations and not only_graphs):
         if os.path.exists(f"{path}/times.csv"):
             os.remove(f"{path}/times.csv")
         
@@ -321,8 +322,8 @@ def main(argv):
                 for j in range(5):
                     top_five_processes_file.write(f"{run_iter},{i},{perf_sched_summary_cpu_dfs_new[i].iloc[j]['process'].split('[')[0]},{perf_sched_summary_cpu_dfs_new[i].iloc[j]['run-time (ms)']}\n")
                 top_five_processes_file.close()
-
-
+    
+    if (all_iterations):
         ################# SUMMARY ALL ITERATIONS #################
         print(f"\n###################### SUMMARY ######################\n")
 
@@ -389,7 +390,7 @@ def main(argv):
         exit()
 
     old_stdout = sys.stdout
-    # sys.stdout = f
+    sys.stdout = f
 
     style_options = ['+-','o-','.--','s:']
     
@@ -537,40 +538,6 @@ def main(argv):
             plt.ylabel('Relative memory usage (%)')
             plt.title(f'Relative memory usage of top 10 running processes for each iteration across all CPUs')
 
-            if (verbose):
-                # VSZ
-                pidstat_mem_average_df = pd.read_csv(f'{path}/pidstat_mem_average.csv', verbose=True, names=pidstat_mem_average_headers)
-                pidstat_mem_average_df['Run'] = pidstat_mem_average_df['Run'].astype("string") if pidstat_mem_average_df.shape[0] < 6 else pidstat_mem_average_df['Run']
-                pidstat_mem_average_df = pidstat_mem_average_df.groupby(['Run', 'Command']).agg({'UID': 'first', 'PID': 'first', 'minflt/s': 'mean', 'majflt/s': 'mean', 'VSZ (kB)': 'sum', 'RSS (kB)': 'sum', '"%"MEM': 'sum'}).reset_index()
-                pidstat_mem_average_df = pidstat_mem_average_df.pivot(index='Run', columns='Command', values='VSZ (kB)')
-                pidstat_mem_average_df = pidstat_mem_average_df.fillna(0)
-
-                # Compute the mean of each column
-                column_means = pidstat_mem_average_df.mean()
-
-                # Sort the column names based on their mean values
-                column_names = column_means.sort_values(ascending=False).index.tolist()
-
-                # Reorder the columns based on the sorted names
-                pidstat_mem_average_df = pidstat_mem_average_df[column_names]
-
-                # Keep only the 10 first columns
-                pidstat_mem_average_df = pidstat_mem_average_df.iloc[:, : 10]
-
-                style_list = []
-                for n in range(pidstat_mem_average_df.shape[1]):
-                    style_list.append(style_options[n % len(style_options)])
-                markevery = 2
-                if (pidstat_mem_average_df.shape[0] > 50):
-                    markevery = (pidstat_mem_average_df.shape[0] // 10)
-                if (pidstat_mem_average_df.shape[0] < 10):
-                    markevery = 1
-                pidstat_mem_average_df.plot(kind='line', style=style_list, markevery=markevery)
-                plt.xlabel('Run iteration')
-                plt.ylabel('Size (kB)')
-                plt.title(f'Virtual memory usage of top 10 running processes for each iteration across all CPUs')
-
-
         if (process_name == "thesis_app"):
             app_output_df['Run'] = app_output_df['Run'].astype("string") if app_output_df.shape[0] < 6 else app_output_df['Run']
             app_output_df.set_index('Run')
@@ -653,52 +620,12 @@ def main(argv):
             plt.ylabel('Relative memory usage (%)')
             plt.title(f'Memory usage of top 10 running processes across all CPUs')
 
-            if (verbose):
-                # VSZ
-                pidstat_mem_all_df = pd.read_csv(f'{path}/pidstat_mem_all.csv', verbose=True, names=pidstat_mem_all_headers)
-                pidstat_mem_all_df['Time'] = pd.to_datetime(pidstat_mem_all_df['Time'])
-                pidstat_mem_all_df['seconds'] = pidstat_mem_all_df['Time'].dt.strftime("%H:%M:%S")
-                pidstat_mem_all_df = pidstat_mem_all_df.groupby(['seconds', 'Command']).agg({'UID': 'first', 'PID': 'first', 'minflt/s': 'mean', 'majflt/s': 'mean', 'VSZ (kB)': 'sum', 'RSS (kB)': 'sum', '"%"MEM': 'sum'}).reset_index()
-                pidstat_mem_all_df = pidstat_mem_all_df.pivot(index='seconds', columns='Command', values='VSZ (kB)')
-                pidstat_mem_all_df = pidstat_mem_all_df.fillna(0)
-
-                # Compute the mean of each column
-                column_means = pidstat_mem_all_df.mean()
-
-                # Sort the column names based on their mean values
-                column_names = column_means.sort_values(ascending=False).index.tolist()
-
-                # Reorder the columns based on the sorted names
-                pidstat_mem_all_df = pidstat_mem_all_df[column_names]
-
-                # Keep only the 10 first columns
-                pidstat_mem_all_df = pidstat_mem_all_df.iloc[:, : 10]
-
-                style_list = []
-                for n in range(pidstat_mem_all_df.shape[1]):
-                    style_list.append(style_options[n % len(style_options)])
-                markevery = 2
-                if (pidstat_mem_all_df.shape[0] > 50):
-                    markevery = (pidstat_mem_all_df.shape[0] // 10)
-                if (pidstat_mem_all_df.shape[0] < 10):
-                    markevery = 1
-                pidstat_mem_all_df.plot(kind='line', style=style_list, markevery=markevery)
-                plt.xlabel('Time (hour:minute:second)')
-                plt.ylabel('Size (kB)')
-                plt.title(f'Virtual memory usage of top 10 running processes for each iteration across all CPUs')
-
-
-    
     if (os.path.isfile(f'{path}/vmstat.csv') and verbose):
         vmstat_headers = ['Run', 'runnable processes', 'ps blckd wait for I/O', 'tot swpd used', 'free (kB)', 'buff (kB)', 'cache (kB)', 'mem swapped in/s', 'mem swapped out/s', 'from block device (KiB/s)', 'to block device (KiB/s)', 'interrupts/s', 'cxt switch/s', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time', 'Date', 'Time']
         vmstat_df = pd.read_csv(f'{path}/vmstat.csv', verbose=True, names=vmstat_headers)
         vmstat_df['Time'] = pd.to_datetime(vmstat_df['Time'])
         vmstat_df['seconds'] = vmstat_df['Time'].dt.strftime("%H:%M:%S")
         vmstat_df.set_index('seconds')
-        vmstat_ax1 = vmstat_df.plot(kind='line', x='seconds', y=['free (kB)', 'buff (kB)', 'cache (kB)'])
-        plt.xlabel('Time (hour:minute:second)')
-        plt.ylabel('Memory size (kB)')
-        plt.title('vmstat -t -w 1 Memory')
         vmstat_ax2 = vmstat_df.plot(kind='line', x='seconds', y=['runnable processes', 'ps blckd wait for I/O'])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Count')
