@@ -245,13 +245,13 @@ def main(argv):
             cpu_util_score = 0
             for cpu in cpus_used:
                 cpu_util_score += app_cpu_utils[cpu + n_cpus]
-                # cpu_util_score += app_cpu_utils[cpu + n_cpus] - idle_percent_df.iloc[[cpu]]['test'].item()
-            
+                # cpu_util_score += app_cpu_utils[cpu + n_cpus] - idle_percent_df.iloc[[cpu]]['test'].item()            
             cpu_util_score = cpu_util_score / len(cpus_used)
 
             idle_score = 0
             for cpu in cpus_used:
                 idle_score += idle_percent_df.iloc[[cpu]]['test'].item()
+            idle_score = idle_score / len(cpus_used)
 
 
             print("\n\nTop five processes with the highest runtime during app runtime:", file = summary_file)
@@ -653,7 +653,7 @@ def main(argv):
         pidstat_df['Time'] = pd.to_datetime(pidstat_df['Time'])
         pidstat_df['seconds'] = pidstat_df['Time'].dt.strftime("%H:%M:%S")
         pidstat_df.set_index('seconds')
-        pidstat_ax = pidstat_df.plot(kind='line', x='seconds', y=['"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU'], ylim=[0, 110])
+        pidstat_ax = pidstat_df.plot(kind='line', x='seconds', y=['"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU'])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Relative CPU usage (%)')
         plt.title(f'pidstat 1 | grep {process_name} (and subthreads)')
