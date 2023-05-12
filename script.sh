@@ -72,8 +72,10 @@ CPU_FREQS=$(cat /proc/cpuinfo | grep "model name" | awk '{print $9}')
 CPU0_FREQ=$(echo $CPU_FREQS | awk '{print $1}')
 
 # Set static CPU freq
+echo -n "Setting CPU frequencies to static..."
 sudo cpupower frequency-set -d $CPU0_FREQ > /dev/null 2>&1
 sudo cpupower frequency-set -u $CPU0_FREQ > /dev/null 2>&1
+echo "done"
 
 for (( i=1; i<=$ITERATIONS; i++ ))
 do
@@ -154,8 +156,8 @@ do
         if [[ $ALL_CPUS = 1 ]]
         then
             echo -n "Running $RUN_COMMAND in $PWD on all CPU's. Retrieving stats for $PROCESS_NAME..."
-            perf stat -a --per-core -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
-                -A -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt $RUN_COMMAND > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
+            perf stat -e cycles,instructions,cycle_activity.stalls_total,cycle_activity.cycles_mem_any,hw_interrupts.received,cache-misses,cache-references,branch-misses,branch-instructions,mem-stores,mem-loads,page-faults \
+                -B -o $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_stat.txt $RUN_COMMAND > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/app_output.txt
         else
             echo -n "Running $RUN_COMMAND in $PWD on CPU $APP_ISOL_CPU. Retrieving stats for $PROCESS_NAME..."
             perf stat \
@@ -166,9 +168,12 @@ do
         PROCESS_PID=$(pidof $PROCESS_NAME)
         echo $PROCESS_PID > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/process_pid.txt
         EGREP_PROCESS_PID="|$PROCESS_PID"
-        echo "Isolating $PROCESS_NAME on CPU $APP_ISOL_CPU."
-        taskset -acp $APP_ISOL_CPU $PROCESS_PID > /dev/null 2>&1
-        echo "done"
+        if [[ $ALL_CPUS = 0 ]]
+        then
+            echo "Isolating $PROCESS_NAME on CPU $APP_ISOL_CPU."
+            taskset -acp $APP_ISOL_CPU $PROCESS_PID > /dev/null 2>&1
+            echo "done"
+        fi
         sleep 1
         echo "Retrieving stats for $PROCESS_NAME..."
         perf stat \
