@@ -5,7 +5,7 @@ VAL				= valgrind --leak-check=full -v
 SHELL			:=/bin/bash
 
 all:
-	sudo ./script.sh
+	sudo ./observer.sh
 
 run_thesis_app: thesis_app
 	./thesis_app

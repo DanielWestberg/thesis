@@ -253,4 +253,4 @@ sudo cpupower frequency-set -d 0GHz > /dev/null 2>&1
 sudo cpupower frequency-set -u 4GHz > /dev/null 2>&1
 echo "done"
 
-$SCRIPT_DIR/format.sh $CURRENT_TIME
+$SCRIPT_DIR/formatter.sh $CURRENT_TIME

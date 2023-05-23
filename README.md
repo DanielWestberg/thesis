@@ -31,7 +31,7 @@ You might need to install more tools in order for the script to work.
 
 ## Only display data
 
-Run `python3 score.py 'run_path' 'process_name' 'n_cpus' 'plot_graphs' 'verbose' 'only_graphs'` to see the data for a specific run, either all iterations or a single one, where
+Run `python3 summary.py 'run_path' 'process_name' 'n_cpus' 'plot_graphs' 'verbose' 'only_graphs'` to see the data for a specific run, either all iterations or a single one, where
 
 - `'run_path'` is the path to the outputs of the specific run, e.g. `/home/user/thesis/output/20230101_010101` or `/home/user/thesis/output/20230101_010101/2`
 - `'process_name'` is the name of the process to be observed, same as in config.json
