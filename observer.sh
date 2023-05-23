@@ -193,8 +193,8 @@ do
     if [[ $i != $DISABLE_OBSERVE_ITER ]]
     then
         echo -n "Stopping observation tools..."
-        kill $PERF_PID $PERF_SCHED_PID $VMSTAT_PID
-        kill -INT $SAR_R_PID $SAR_M_PID $PIDSTAT_PID $PIDSTAT_MEM_PID
+        kill $VMSTAT_PID
+        kill -INT $PERF_PID $PERF_SCHED_PID $SAR_R_PID $SAR_M_PID $PIDSTAT_PID $PIDSTAT_MEM_PID
         echo "done"
     fi
 
@@ -207,7 +207,18 @@ do
         echo "done"
     fi
 
-    sleep 2
+    while test -z "$(sudo perf report --stats -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf.data)";
+    do
+        echo "perf.data not finished yet. Ignore the warning. Checks again in 1 second..."
+        sleep 1
+    done
+
+    while test -z "$(sudo perf sched latency -i $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/perf_sched.data)";
+    do
+        echo "perf_sched.data not finished yet. Ignore the warning. Checks again in 1 second..."
+        sleep 1
+    done
+
     # Generate flamegraph
     if [[ $i != $DISABLE_OBSERVE_ITER ]]
     then
