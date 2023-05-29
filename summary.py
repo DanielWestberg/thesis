@@ -22,6 +22,7 @@ def main(argv):
     plot_graphs = (argv[3] == "yes")
     verbose = (argv[4] == "yes")
     only_graphs = (argv[5] == "yes")
+    save_graphs = (argv[6] == "yes")
     f = open(os.devnull, 'w')
 
     print("Loading stats, please wait...")
@@ -389,6 +390,9 @@ def main(argv):
     if (not plot_graphs):
         exit()
 
+    if (save_graphs):
+        os.makedirs(f'{path}/figures/', exist_ok=True)
+    
     old_stdout = sys.stdout
     sys.stdout = f
 
@@ -401,54 +405,66 @@ def main(argv):
             times_df = pd.read_csv(f'{path}/times.csv', names=times_headers)
             times_df['Run'] = times_df['Run'].astype("string") if times_df.shape[0] < 6 else times_df['Run']
             times_df.set_index('Run')
-            times_df.plot(kind='line', x='Run', y=['Wall time'], ylim=[0, times_df['Wall time'].max()*1.1])
+            fig = times_df.plot(kind='line', x='Run', y=['Wall time'], ylim=[0, times_df['Wall time'].max()*1.1])
             plt.xlabel('Run iteration')
             plt.ylabel('Time (s)')
             plt.title(f'Wall time per run iteration')
-            times_df.plot(kind='line', x='Run', y=['Ideal CPU time', 'Stall time', 'Ideal CPU time with stall cycles', 'Actual CPU time'], ylim=[0, times_df['Wall time'].max()*1.1])
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/wall_time.png', format="png")
+            fig = times_df.plot(kind='line', x='Run', y=['Ideal CPU time', 'Stall time', 'Ideal CPU time with stall cycles', 'Actual CPU time'], ylim=[0, times_df['Wall time'].max()*1.1])
             plt.xlabel('Run iteration')
             plt.ylabel('Time (s)')
             plt.title(f'Estimated and measured times per run iteration')
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/times.png', format="png")
         
         if (os.path.isfile(f'{path}/scores.csv')):
             scores_headers = ['Run', 'CPU time score', 'CPU utilization score', 'CPU idle score']
             scores_df = pd.read_csv(f'{path}/scores.csv', names=scores_headers)
             scores_df['Run'] = scores_df['Run'].astype("string") if scores_df.shape[0] < 6 else scores_df['Run']
             scores_df.set_index('Run')
-            scores_df.plot(kind='line', x='Run', y=['CPU time score', 'CPU utilization score', 'CPU idle score'], ylim=[0, 110])
+            fig = scores_df.plot(kind='line', x='Run', y=['CPU time score', 'CPU utilization score', 'CPU idle score'], ylim=[0, 110])
             plt.xlabel('Run iteration')
             plt.ylabel('Score')
             plt.title(f'Scores per run iteration')
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/scores.png', format="png")
         
         if (os.path.isfile(f'{path}/misses_percent.csv') and verbose):
             misses_percent_headers = ['Run', 'Cache misses percentage', 'Branch misses percentage']
             misses_percent_df = pd.read_csv(f'{path}/misses_percent.csv', names=misses_percent_headers)
             misses_percent_df['Run'] = misses_percent_df['Run'].astype("string") if misses_percent_df.shape[1] < 6 else misses_percent_df['Run']
             misses_percent_df.set_index('Run')
-            misses_percent_df.plot(kind='line', x='Run', y=['Cache misses percentage', 'Branch misses percentage'], ylim=[0, 110])
+            fig = misses_percent_df.plot(kind='line', x='Run', y=['Cache misses percentage', 'Branch misses percentage'], ylim=[0, 110])
             plt.xlabel('Run iteration')
             plt.ylabel('Miss %')
             plt.title(f'Cache and branch misses %')
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/misses_percent.png', format="png")
         
         if (os.path.isfile(f'{path}/hw_interrupts.csv') and verbose):
             hw_interrupts_headers = ['Run', 'HW interrupts']
             hw_interrupts_df = pd.read_csv(f'{path}/hw_interrupts.csv', names=hw_interrupts_headers)
             hw_interrupts_df['Run'] = hw_interrupts_df['Run'].astype("string") if hw_interrupts_df.shape[0] < 6 else hw_interrupts_df['Run']
             hw_interrupts_df.set_index('Run')
-            hw_interrupts_df.plot(kind='line', x='Run', y=['HW interrupts'], ylim=[0, hw_interrupts_df['HW interrupts'].max()*1.1])
+            fig = hw_interrupts_df.plot(kind='line', x='Run', y=['HW interrupts'], ylim=[0, hw_interrupts_df['HW interrupts'].max()*1.1])
             plt.xlabel('Run iteration')
             plt.ylabel('HW interrupt counts')
             plt.title(f'Hardware interrupts')
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/misses_percent.png', format="png")
         
         if (os.path.isfile(f'{path}/ipc.csv') and verbose):
             ipc_headers = ['Run', 'IPC']
             ipc_df = pd.read_csv(f'{path}/ipc.csv', names=ipc_headers)
             ipc_df['Run'] = ipc_df['Run'].astype("string") if ipc_df.shape[0] < 6 else ipc_df['Run']
             ipc_df.set_index('Run')
-            ipc_df.plot(kind='line', x='Run', y=['IPC'], ylim=[0, ipc_df['IPC'].max()*1.1])
+            fig = ipc_df.plot(kind='line', x='Run', y=['IPC'], ylim=[0, ipc_df['IPC'].max()*1.1])
             plt.xlabel('Run iteration')
             plt.ylabel('IPC')
             plt.title(f'Instructions per cycle')
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/ipc.png', format="png")
         
         for i in range(n_cpus):
             if (os.path.isfile(f'{path}/top_five_processes_cpu{i}.csv') and verbose):
@@ -465,10 +481,13 @@ def main(argv):
                     markevery=(top_five_processes_df.shape[0] // 10)
                 if (top_five_processes_df.shape[0] < 10):
                     markevery=1
-                top_five_processes_df.plot(kind='line', style=style_list, markevery=markevery)
+                fig = top_five_processes_df.plot(kind='line', style=style_list, markevery=markevery)
                 plt.xlabel('Run iteration')
                 plt.ylabel('Runtime (ms)')
                 plt.title(f'Top <=5 process runtimes for each iteration in CPU {i}')
+                if (save_graphs):
+                    fig.figure.savefig(f'{path}/figures/top_five_processes_cpu{i}.png', format="png")
+
 
         if (os.path.isfile(f'{path}/pidstat_average.csv')):
             pidstat_average_headers = ['Run', 'Average', 'UID', 'PID', '"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU', 'CPU', 'Command']
@@ -498,10 +517,13 @@ def main(argv):
                 markevery = (pidstat_average_df.shape[0] // 10)
             if (pidstat_average_df.shape[0] < 10):
                 markevery = 1
-            pidstat_average_df.plot(kind='line', style=style_list, markevery=markevery)
+            fig = pidstat_average_df.plot(kind='line', style=style_list, markevery=markevery)
             plt.xlabel('Run iteration')
             plt.ylabel('Relative CPU usage (%) (ms)')
             plt.title(f'CPU usage of top 10 running processes for each iteration across all CPUs')
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/top_10_all_cpus.png', format="png")
+
 
         if (os.path.isfile(f'{path}/pidstat_mem_average.csv')):
             pidstat_mem_average_headers = ['Run', 'Average', 'UID', 'PID', 'minflt/s', 'majflt/s', 'VSZ (kB)', 'RSS (kB)', '"%"MEM', 'Command']
@@ -533,10 +555,12 @@ def main(argv):
                 markevery = (pidstat_mem_average_df.shape[0] // 10)
             if (pidstat_mem_average_df.shape[0] < 10):
                 markevery = 1
-            pidstat_mem_average_df.plot(kind='line', style=style_list, markevery=markevery)
+            fig = pidstat_mem_average_df.plot(kind='line', style=style_list, markevery=markevery)
             plt.xlabel('Run iteration')
             plt.ylabel('Relative memory usage (%)')
             plt.title(f'Relative memory usage of top 10 running processes for each iteration across all CPUs')
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/top_10_mem.png', format="png")
 
         if (process_name == "thesis_app"):
             app_output_df['Run'] = app_output_df['Run'].astype("string") if app_output_df.shape[0] < 6 else app_output_df['Run']
@@ -579,10 +603,13 @@ def main(argv):
                 markevery = (pidstat_all_df.shape[0] // 10)
             if (pidstat_all_df.shape[0] < 10):
                 markevery = 1
-            pidstat_all_df.plot(kind='line', style=style_list, markevery=markevery)
+            fig = pidstat_all_df.plot(kind='line', style=style_list, markevery=markevery)
             plt.xlabel('Time (hour:minute:second)')
             plt.ylabel('Relative CPU usage (%) (ms)')
             plt.title(f'CPU usage of top 10 running processes across all CPUs')
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/top_10_all_cpus.png', format="png")
+
 
         if (os.path.isfile(f'{path}/pidstat_mem_all.csv')):
             pidstat_mem_all_headers = ['Time', 'UID', 'PID', 'minflt/s', 'majflt/s', 'VSZ (kB)', 'RSS (kB)', '"%"MEM', 'Command']
@@ -615,10 +642,12 @@ def main(argv):
                 markevery = (pidstat_mem_all_df.shape[0] // 10)
             if (pidstat_mem_all_df.shape[0] < 10):
                 markevery = 1
-            pidstat_mem_all_df.plot(kind='line', style=style_list, markevery=markevery)
+            fig = pidstat_mem_all_df.plot(kind='line', style=style_list, markevery=markevery)
             plt.xlabel('Time (hour:minute:second)')
             plt.ylabel('Relative memory usage (%)')
             plt.title(f'Memory usage of top 10 running processes across all CPUs')
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/top_10_mem.png', format="png")
 
     if (os.path.isfile(f'{path}/vmstat.csv') and verbose):
         vmstat_headers = ['Run', 'runnable processes', 'ps blckd wait for I/O', 'tot swpd used', 'free (kB)', 'buff (kB)', 'cache (kB)', 'mem swapped in/s', 'mem swapped out/s', 'from block device (KiB/s)', 'to block device (KiB/s)', 'interrupts/s', 'cxt switch/s', 'user time', 'system time', 'idle time', 'wait io time', 'stolen time', 'Date', 'Time']
@@ -626,26 +655,36 @@ def main(argv):
         vmstat_df['Time'] = pd.to_datetime(vmstat_df['Time'])
         vmstat_df['seconds'] = vmstat_df['Time'].dt.strftime("%H:%M:%S")
         vmstat_df.set_index('seconds')
-        vmstat_ax2 = vmstat_df.plot(kind='line', x='seconds', y=['runnable processes', 'ps blckd wait for I/O'])
+        fig = vmstat_df.plot(kind='line', x='seconds', y=['runnable processes', 'ps blckd wait for I/O'])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Count')
         plt.title('vmstat -t -w 1 Processes')
-        vmstat_ax3 = vmstat_df.plot(kind='line', x='seconds', y=['tot swpd used', 'mem swapped in/s', 'mem swapped out/s'])
+        if (save_graphs):
+            fig.figure.savefig(f'{path}/figures/vmstat_processes.png', format="png")
+        fig = vmstat_df.plot(kind='line', x='seconds', y=['tot swpd used', 'mem swapped in/s', 'mem swapped out/s'])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Size (KiB)')
         plt.title('vmstat -t -w 1 Swap')
-        vmstat_ax4 = vmstat_df.plot(kind='line', x='seconds', y=['from block device (KiB/s)', 'to block device (KiB/s)'])
+        if (save_graphs):
+            fig.figure.savefig(f'{path}/figures/vmstat_swap.png', format="png")
+        fig = vmstat_df.plot(kind='line', x='seconds', y=['from block device (KiB/s)', 'to block device (KiB/s)'])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Size per second (KiB/s)')
         plt.title('vmstat -t -w 1 I/O')
-        vmstat_ax5 = vmstat_df.plot(kind='line', x='seconds', y=['interrupts/s', 'cxt switch/s'])
+        if (save_graphs):
+            fig.figure.savefig(f'{path}/figures/vmstat_block_device.png', format="png")
+        fig = vmstat_df.plot(kind='line', x='seconds', y=['interrupts/s', 'cxt switch/s'])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Count')
         plt.title('vmstat -t -w 1 System')
-        vmstat_ax6 = vmstat_df.plot(kind='line', x='seconds', y=['user time', 'system time', 'idle time', 'wait io time', 'stolen time'], ylim=[0, 110])
+        if (save_graphs):
+            fig.figure.savefig(f'{path}/figures/vmstat_cxt_switches.png', format="png")
+        fig = vmstat_df.plot(kind='line', x='seconds', y=['user time', 'system time', 'idle time', 'wait io time', 'stolen time'], ylim=[0, 110])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Relative time spent (%)')
         plt.title('vmstat -t -w 1 CPU')
+        if (save_graphs):
+            fig.figure.savefig(f'{path}/figures/vmstat_cpu_rel_time.png', format="png")
 
     if (os.path.isfile(f'{path}/pidstat.csv') and verbose):
         pidstat_headers = ['Run', 'Time', 'UID', 'PID', '"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU', 'CPU', 'Command']
@@ -653,10 +692,12 @@ def main(argv):
         pidstat_df['Time'] = pd.to_datetime(pidstat_df['Time'])
         pidstat_df['seconds'] = pidstat_df['Time'].dt.strftime("%H:%M:%S")
         pidstat_df.set_index('seconds')
-        pidstat_ax = pidstat_df.plot(kind='line', x='seconds', y=['"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU'])
+        fig = pidstat_df.plot(kind='line', x='seconds', y=['"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU'])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Relative CPU usage (%)')
         plt.title(f'pidstat 1 | grep {process_name} (and subthreads)')
+        if (save_graphs):
+            fig.figure.savefig(f'{path}/figures/pidstat_cpu.png', format="png")
 
     if (os.path.isfile(f'{path}/pidstat_mem.csv') and verbose):
         pidstat_mem_headers = ['Run', 'Time', 'UID', 'PID', 'minflt/s', 'majflt/s', 'VSZ (kB)', 'RSS (kB)', '"%"MEM', 'Command']
@@ -664,10 +705,12 @@ def main(argv):
         pidstat_mem_df['Time'] = pd.to_datetime(pidstat_mem_df['Time'])
         pidstat_mem_df['seconds'] = pidstat_mem_df['Time'].dt.strftime("%H:%M:%S")
         pidstat_mem_df.set_index('seconds')
-        pidstat_mem_ax = pidstat_mem_df.plot(kind='line', x='seconds', y=['minflt/s', 'majflt/s', 'VSZ (kB)', 'RSS (kB)'])
+        fig = pidstat_mem_df.plot(kind='line', x='seconds', y=['minflt/s', 'majflt/s', 'VSZ (kB)', 'RSS (kB)'])
         plt.xlabel('time (hour:minute:second)')
         plt.ylabel('Size (kB)')
         plt.title(f'pidstat 1 -r | grep {process_name} (and subthreads)')
+        if (save_graphs):
+            fig.figure.savefig(f'{path}/figures/pidstat_mem.png', format="png")
 
     if (os.path.isfile(f'{path}/sar_r.csv') and verbose):
         sar_r_headers = ['Run', 'Time', 'kbmemfree', 'kbavail', 'kbmemused', '"%"memused', 'kbbuffers', 'kbcached', 'kbcommit', '"%"commit', 'kbactive', 'kbinact', 'kbdirty', 'kbanonpg', 'kbslab', 'kbkstack', 'kbpgtbl', 'kbvmused']
@@ -685,14 +728,18 @@ def main(argv):
             markevery = (sar_r_df.shape[0] // 100)
         if (sar_r_df.shape[0] < 10):
             markevery = 1
-        sar_r_df.plot(kind='line', style=style_list, markevery=markevery, x='seconds', y=['kbmemfree', 'kbavail', 'kbmemused', 'kbbuffers', 'kbcached', 'kbcommit', 'kbactive', 'kbinact', 'kbdirty', 'kbanonpg', 'kbslab', 'kbkstack', 'kbpgtbl', 'kbvmused'])
+        fig = sar_r_df.plot(kind='line', style=style_list, markevery=markevery, x='seconds', y=['kbmemfree', 'kbavail', 'kbmemused', 'kbbuffers', 'kbcached', 'kbcommit', 'kbactive', 'kbinact', 'kbdirty', 'kbanonpg', 'kbslab', 'kbkstack', 'kbpgtbl', 'kbvmused'])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Size (kB)')
         plt.title('sar -r ALL 1')
-        sar_r_df.plot(kind='line', x='seconds', y=['"%"memused', '"%"commit'], ylim=[0, 110])
+        if (save_graphs):
+            fig.figure.savefig(f'{path}/figures/sar_mem.png', format="png")
+        fig = sar_r_df.plot(kind='line', x='seconds', y=['"%"memused', '"%"commit'], ylim=[0, 110])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Percentage (%)')
         plt.title('sar -r ALL 1')
+        if (save_graphs):
+            fig.figure.savefig(f'{path}/figures/sar_rel_mem.png', format="png")
     
     sys.stdout = old_stdout
 
