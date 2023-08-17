@@ -1,9 +1,23 @@
 #!/usr/bin/python3
 import pandas as pd
+import numpy as np
+import scipy.stats as stats
 import matplotlib.pyplot as plt
 import webbrowser
+import texttable
+import latextable
 import os
 import sys
+
+def corr(wall_time_series, stall_time_series, ideal_time_series, pearson_corr_df, spearman_corr_df, params, df):
+    for param in params:
+        pearson_corr_df.at[param, 'Wall time'] = stats.pearsonr(wall_time_series, df[param])[0]            
+        spearman_corr_df.at[param, 'Wall time'] = stats.spearmanr(wall_time_series, df[param])[0]
+        pearson_corr_df.at[param, 'Stall time'] = stats.pearsonr(stall_time_series, df[param])[0]            
+        spearman_corr_df.at[param, 'Stall time'] = stats.spearmanr(stall_time_series, df[param])[0]
+        pearson_corr_df.at[param, 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, df[param])[0]            
+        spearman_corr_df.at[param, 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, df[param])[0]
+    return pearson_corr_df, spearman_corr_df
 
 def main(argv):
     path = argv[0]
@@ -43,6 +57,12 @@ def main(argv):
         
         if os.path.exists(f"{path}/ipc.csv"):
             os.remove(f"{path}/ipc.csv")
+        
+        if os.path.exists(f"{path}/page_faults.csv"):
+            os.remove(f"{path}/page_faults.csv")
+        
+        if os.path.exists(f"{path}/mem_loads_stores.csv"):
+            os.remove(f"{path}/mem_loads_stores.csv")
         
         for i in range(n_cpus):
             if os.path.exists(f"{path}/top_five_processes_cpu{i}.csv"):
@@ -283,13 +303,13 @@ def main(argv):
             print(f"Number of hardware interrupts:          {perf_stat_hw_interrupts_received_df['hw_interrupts'].item()}", file = summary_file)
 
             print("\n----------------------- SCORES -----------------------", file = summary_file)
-            print(f"CPU time score (ideal/wall):            {((t_ideal/wall_time)*100):.2f}   (0 = bad, lots of stalls and noise. 100 = good, no stall cycles or noise)", file = summary_file)
+            print(f"Score (ideal/wall):            {((t_ideal/wall_time)*100):.2f}   (0 = bad, lots of stalls and noise. 100 = good, no stall cycles or noise)", file = summary_file)
             # print(f"CPU time score (ideal/actual):          {((t_ideal/tot_runtime_all_cpus)*100):.2f}   (0 = bad, lots of stall cycles. 100 = good, no stall cycles)", file = summary_file)
             # print(f"CPU time score (incl. stalls/wall):     {((t_with_stalls/wall_time)*100):.2f}   (0 = bad, lots of noise. 100 = good, no noise)", file = summary_file)
             # print(f"CPU time score (incl. stalls/actual):   {((t_with_stalls/tot_runtime_all_cpus)*100):.2f}   (0 = bad, lots of noise. 100 = good, no noise)", file = summary_file)
             # print(f"CPU time score (actual/wall):           {((tot_runtime_all_cpus/wall_time)*100):.2f}   (0 = bad, lots of noise. 100 = good, no noise)", file = summary_file)
-            print(f"CPU utilization score:                  {(cpu_util_score):.2f}   (0 = bad, CPU idle or used for other processes. 100 = good, CPU only used for app)", file = summary_file)
-            print(f"CPU idle score:                         {(idle_score):.2f}   (0 = good, CPU not idle. 100 = bad, CPU idle)", file = summary_file)
+            # print(f"CPU utilization score:                  {(cpu_util_score):.2f}   (0 = bad, CPU idle or used for other processes. 100 = good, CPU only used for app)", file = summary_file)
+            # print(f"CPU idle score:                         {(idle_score):.2f}   (0 = good, CPU not idle. 100 = bad, CPU idle)", file = summary_file)
             # print(f"Memory score:                           not yet implemented", file = summary_file)
             # print(f"Memory score:                           {(100 - mem_util):.2f}", file = summary_file)
             print("", file = summary_file)
@@ -318,66 +338,350 @@ def main(argv):
             ipc_file.write(f"{run_iter},{ipc}\n")
             ipc_file.close()
 
+            page_faults_file = open(f"{path}/page_faults.csv", "a")
+            page_faults_file.write(f"{run_iter},{page_faults}\n")
+            page_faults_file.close()
+
+            mem_loads_stores_file = open(f"{path}/mem_loads_stores.csv", "a")
+            mem_loads_stores_file.write(f"{run_iter},{mem_loads},{mem_stores}\n")
+            mem_loads_stores_file.close()
+
             for i in range(n_cpus):
                 top_five_processes_file = open(f"{path}/top_five_processes_cpu{i}.csv", "a")
-                for j in range(5):
+                for j in range(3):
                     top_five_processes_file.write(f"{run_iter},{i},{perf_sched_summary_cpu_dfs_new[i].iloc[j]['process'].split('[')[0]},{perf_sched_summary_cpu_dfs_new[i].iloc[j]['run-time (ms)']}\n")
                 top_five_processes_file.close()
     
     if (all_iterations):
+        summary_table = texttable.Texttable()
+        summary_table.set_cols_align(["c","c","c","c","c","c","c"])
+        summary_table.set_cols_valign(["m","m","m","m","m","m","m"])
+        pearson_table = texttable.Texttable()
+        pearson_table.set_cols_align(["c","c","c","c"])
+        pearson_table.set_cols_valign(["m","m","m","m"])
+        spearman_table = texttable.Texttable()
+        spearman_table.set_cols_align(["c","c","c","c"])
+        spearman_table.set_cols_valign(["m","m","m","m"])
+        rows = [["Value", "Mean", "Min", "Max", "Std", "Worst iteration", "Best iteration"]]
+        rows_pearson = [["Param", "Wall time", "Stall time", "Ideal time"]]
+        rows_spearman = [["Param", "Wall time", "Stall time", "Ideal time"]]
+
+        params = ['Wall time', 'Ideal CPU time', 'Stall time', 'Actual CPU time', 'App mem %', 'App CPU %', 'Idle CPU',\
+                  'Cache misses %', 'Branch misses %', 'HW interrupts', 'IPC', 'Page faults', 'Mem loads', 'Mem stores', \
+                  'kbmemfree', 'kbavail', 'kbmemused', '"%"memused', 'kbbuffers', 'kbcached', 'kbcommit', '"%"commit', \
+                  'kbactive', 'kbinact', 'kbdirty', 'kbanonpg', 'kbslab', 'kbkstack', 'kbpgtbl', 'kbvmused']
+        pearson_corr_df = pd.DataFrame(index=params, columns=['Wall time'])
+        pearson_corr_df = pearson_corr_df.fillna(np.nan)
+        spearman_corr_df = pearson_corr_df.copy()
+        wall_time_series = []
+        stall_time_series = []
+        ideal_time_series = []
+
         ################# SUMMARY ALL ITERATIONS #################
-        print(f"\n###################### SUMMARY ######################\n")
+        # print(f"\n###################### SUMMARY ######################\n")
 
         if (os.path.isfile(f'{path}/times.csv')):
-            print("\n----------------------- TIMES -----------------------")
+            # print("\n----------------------- TIMES -----------------------")
             times_headers = ['Run', 'Ideal CPU time', 'Stall time', 'Ideal CPU time with stall cycles', 'Actual CPU time', 'Wall time']
             times_df = pd.read_csv(f'{path}/times.csv', names=times_headers)
-            print(times_df[['Ideal CPU time', 'Stall time', 'Ideal CPU time with stall cycles', 'Actual CPU time', 'Wall time']].describe().applymap('{:,.2f}'.format))
-            print()
-            print(f"Run iteration with highest ideal CPU time:  {times_df.loc[times_df['Ideal CPU time'] == times_df['Ideal CPU time'].max(), 'Run'].iloc[0]}")
-            print(f"Run iteration with highest stall time:      {times_df.loc[times_df['Stall time'] == times_df['Stall time'].max(), 'Run'].iloc[0]}")
-            print(f"Run iteration with highest actual CPU time: {times_df.loc[times_df['Actual CPU time'] == times_df['Actual CPU time'].max(), 'Run'].iloc[0]}")
-            print(f"Run iteration with highest wall time:       {times_df.loc[times_df['Wall time'] == times_df['Wall time'].max(), 'Run'].iloc[0]}")
-            print()
+            # print(times_df[['Ideal CPU time', 'Stall time', 'Actual CPU time', 'Wall time']].describe().applymap('{:,.2f}'.format))
+            # print()
+            # print(f"Run iteration with highest ideal CPU time:  {times_df.loc[times_df['Ideal CPU time'] == times_df['Ideal CPU time'].max(), 'Run'].iloc[0]}")
+            # print(f"Run iteration with highest stall time:      {times_df.loc[times_df['Stall time'] == times_df['Stall time'].max(), 'Run'].iloc[0]}")
+            # print(f"Run iteration with highest actual CPU time: {times_df.loc[times_df['Actual CPU time'] == times_df['Actual CPU time'].max(), 'Run'].iloc[0]}")
+            # print(f"Run iteration with highest wall time:       {times_df.loc[times_df['Wall time'] == times_df['Wall time'].max(), 'Run'].iloc[0]}")
+            # print()
+
+            wall_time_series = times_df['Wall time']
+            stall_time_series = times_df['Stall time']
+            ideal_time_series = times_df['Ideal CPU time']
+
+            pearson_corr_df.at['Wall time', 'Wall time'] = stats.pearsonr(wall_time_series, times_df['Wall time'])[0]
+            pearson_corr_df.at['Ideal CPU time', 'Wall time'] = stats.pearsonr(wall_time_series, times_df['Ideal CPU time'])[0]
+            pearson_corr_df.at['Stall time', 'Wall time'] = stats.pearsonr(wall_time_series, times_df['Stall time'])[0]
+            pearson_corr_df.at['Actual CPU time', 'Wall time'] = stats.pearsonr(wall_time_series, times_df['Actual CPU time'])[0]
+            spearman_corr_df.at['Wall time', 'Wall time'] = stats.spearmanr(wall_time_series, times_df['Wall time'])[0]
+            spearman_corr_df.at['Ideal CPU time', 'Wall time'] = stats.spearmanr(wall_time_series, times_df['Ideal CPU time'])[0]
+            spearman_corr_df.at['Stall time', 'Wall time'] = stats.spearmanr(wall_time_series, times_df['Stall time'])[0]
+            spearman_corr_df.at['Actual CPU time', 'Wall time'] = stats.spearmanr(wall_time_series, times_df['Actual CPU time'])[0]
+            
+            pearson_corr_df.at['Wall time', 'Stall time'] = stats.pearsonr(stall_time_series, times_df['Wall time'])[0]
+            pearson_corr_df.at['Ideal CPU time', 'Stall time'] = stats.pearsonr(stall_time_series, times_df['Ideal CPU time'])[0]
+            pearson_corr_df.at['Stall time', 'Stall time'] = stats.pearsonr(stall_time_series, times_df['Stall time'])[0]
+            pearson_corr_df.at['Actual CPU time', 'Stall time'] = stats.pearsonr(stall_time_series, times_df['Actual CPU time'])[0]
+            spearman_corr_df.at['Wall time', 'Stall time'] = stats.spearmanr(stall_time_series, times_df['Wall time'])[0]
+            spearman_corr_df.at['Ideal CPU time', 'Stall time'] = stats.spearmanr(stall_time_series, times_df['Ideal CPU time'])[0]
+            spearman_corr_df.at['Stall time', 'Stall time'] = stats.spearmanr(stall_time_series, times_df['Stall time'])[0]
+            spearman_corr_df.at['Actual CPU time', 'Stall time'] = stats.spearmanr(stall_time_series, times_df['Actual CPU time'])[0]
+            
+            pearson_corr_df.at['Wall time', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, times_df['Wall time'])[0]
+            pearson_corr_df.at['Ideal CPU time', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, times_df['Ideal CPU time'])[0]
+            pearson_corr_df.at['Stall time', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, times_df['Stall time'])[0]
+            pearson_corr_df.at['Actual CPU time', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, times_df['Actual CPU time'])[0]
+            spearman_corr_df.at['Wall time', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, times_df['Wall time'])[0]
+            spearman_corr_df.at['Ideal CPU time', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, times_df['Ideal CPU time'])[0]
+            spearman_corr_df.at['Stall time', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, times_df['Stall time'])[0]
+            spearman_corr_df.at['Actual CPU time', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, times_df['Actual CPU time'])[0]
+
+            rows.append(["Wall time", times_df['Wall time'].mean(), times_df['Wall time'].min(), times_df['Wall time'].max(), times_df['Wall time'].std(), times_df.loc[times_df['Wall time'] == times_df['Wall time'].max(), 'Run'].iloc[0], times_df.loc[times_df['Wall time'] == times_df['Wall time'].min(), 'Run'].iloc[0]])
+            rows.append(["Ideal CPU time", times_df['Ideal CPU time'].mean(), times_df['Ideal CPU time'].min(), times_df['Ideal CPU time'].max(), times_df['Ideal CPU time'].std(), times_df.loc[times_df['Ideal CPU time'] == times_df['Ideal CPU time'].max(), 'Run'].iloc[0], times_df.loc[times_df['Ideal CPU time'] == times_df['Ideal CPU time'].min(), 'Run'].iloc[0]])
+            rows.append(["Actual CPU time", times_df['Actual CPU time'].mean(), times_df['Actual CPU time'].min(), times_df['Actual CPU time'].max(), times_df['Actual CPU time'].std(), times_df.loc[times_df['Actual CPU time'] == times_df['Actual CPU time'].max(), 'Run'].iloc[0], times_df.loc[times_df['Actual CPU time'] == times_df['Actual CPU time'].min(), 'Run'].iloc[0]])
+            rows.append(["Stall time", times_df['Stall time'].mean(), times_df['Stall time'].min(), times_df['Stall time'].max(), times_df['Stall time'].std(), times_df.loc[times_df['Stall time'] == times_df['Stall time'].max(), 'Run'].iloc[0], times_df.loc[times_df['Stall time'] == times_df['Stall time'].min(), 'Run'].iloc[0]])
         
+        # if (os.path.isfile(f'{path}/scores.csv')):
+            # print("\n----------------------- SCORE -----------------------")
+            # scores_headers = ['Run', 'Score', 'CPU utilization score', 'CPU idle score']
+            # scores_df = pd.read_csv(f'{path}/scores.csv', names=scores_headers)
+            # print(scores_df[['Score']].describe().applymap('{:,.2f}'.format))
+            # print()
+            # print(f"Run iteration with the lowest score: {scores_df.loc[scores_df['Score'] == scores_df['Score'].min(), 'Run'].iloc[0]}")
+            # print()
+            # pearson_corr_df.at['Score', 'Wall time'] = stats.pearsonr(wall_time_series, scores_df['Score'])[0]
+            # spearman_corr_df.at['Score', 'Wall time'] = stats.spearmanr(wall_time_series, scores_df['Score'])[0]
+            
+            # pearson_corr_df.at['Score', 'Stall time'] = stats.pearsonr(stall_time_series, scores_df['Score'])[0]
+            # spearman_corr_df.at['Score', 'Stall time'] = stats.spearmanr(stall_time_series, scores_df['Score'])[0]
+            
+            # pearson_corr_df.at['Score', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, scores_df['Score'])[0]
+            # spearman_corr_df.at['Score', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, scores_df['Score'])[0]
+
+            # rows.append(["Score", scores_df['Score'].mean(), scores_df['Score'].min(), scores_df['Score'].max(), scores_df['Score'].std(), scores_df.loc[scores_df['Score'] == scores_df['Score'].min(), 'Run'].iloc[0], scores_df.loc[scores_df['Score'] == scores_df['Score'].max(), 'Run'].iloc[0]])
+
         if (os.path.isfile(f'{path}/scores.csv')):
-            print("\n----------------------- SCORES -----------------------")
-            scores_headers = ['Run', 'CPU time score', 'CPU utilization score', 'CPU idle score']
+            # print("\n----------------------- CPU UTILIZATION -----------------------")
+            scores_headers = ['Run', 'CPU time score', 'App CPU utilization', 'Idle CPU']
             scores_df = pd.read_csv(f'{path}/scores.csv', names=scores_headers)
-            print(scores_df[['CPU time score', 'CPU utilization score', 'CPU idle score']].describe().applymap('{:,.2f}'.format))
-            print()
-            print(f"Run iteration with the lowest CPU time score:          {scores_df.loc[scores_df['CPU time score'] == scores_df['CPU time score'].min(), 'Run'].iloc[0]}")
-            print(f"Run iteration with the lowest CPU utilization score:    {scores_df.loc[scores_df['CPU utilization score'] == scores_df['CPU utilization score'].min(), 'Run'].iloc[0]}")
-            print(f"Run iteration with the highest CPU idle score:          {scores_df.loc[scores_df['CPU idle score'] == scores_df['CPU idle score'].max(), 'Run'].iloc[0]}")
-            print()
+            # print(scores_df[['App CPU utilization', 'Idle CPU']].describe().applymap('{:,.2f}'.format))
+            # print()
+            # print(f"Run iteration with the lowest app CPU utilization:  {scores_df.loc[scores_df['App CPU utilization'] == scores_df['App CPU utilization'].min(), 'Run'].iloc[0]}")
+            # print(f"Run iteration with the highest idle CPU percentage: {scores_df.loc[scores_df['Idle CPU'] == scores_df['Idle CPU'].max(), 'Run'].iloc[0]}")
+            # print()
+
+            # pearson_corr_df.at['App CPU utilization', 'Wall time'] = stats.pearsonr(wall_time_series, scores_df['App CPU utilization'])[0]
+            # spearman_corr_df.at['App CPU utilization', 'Wall time'] = stats.spearmanr(wall_time_series, scores_df['App CPU utilization'])[0]
+            pearson_corr_df.at['Idle CPU', 'Wall time'] = stats.pearsonr(wall_time_series, scores_df['Idle CPU'])[0]
+            spearman_corr_df.at['Idle CPU', 'Wall time'] = stats.spearmanr(wall_time_series, scores_df['Idle CPU'])[0]
+            
+            pearson_corr_df.at['Idle CPU', 'Stall time'] = stats.pearsonr(stall_time_series, scores_df['Idle CPU'])[0]
+            spearman_corr_df.at['Idle CPU', 'Stall time'] = stats.spearmanr(stall_time_series, scores_df['Idle CPU'])[0]
+            
+            pearson_corr_df.at['Idle CPU', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, scores_df['Idle CPU'])[0]
+            spearman_corr_df.at['Idle CPU', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, scores_df['Idle CPU'])[0]
+
+            rows.append(["App CPU util", scores_df['App CPU utilization'].mean(), scores_df['App CPU utilization'].min(), scores_df['App CPU utilization'].max(), scores_df['App CPU utilization'].std(), scores_df.loc[scores_df['App CPU utilization'] == scores_df['App CPU utilization'].min(), 'Run'].iloc[0], scores_df.loc[scores_df['App CPU utilization'] == scores_df['App CPU utilization'].max(), 'Run'].iloc[0]])
+            rows.append(["Idle CPU util", scores_df['Idle CPU'].mean(), scores_df['Idle CPU'].min(), scores_df['Idle CPU'].max(), scores_df['Idle CPU'].std(), scores_df.loc[scores_df['Idle CPU'] == scores_df['Idle CPU'].max(), 'Run'].iloc[0], scores_df.loc[scores_df['Idle CPU'] == scores_df['Idle CPU'].min(), 'Run'].iloc[0]])
         
         if (os.path.isfile(f'{path}/misses_percent.csv')):
-            print("\n----------------------- MISS % -----------------------")
+            # print("\n----------------------- MISS % -----------------------")
             misses_percent_headers = ['Run', 'Cache misses %', 'Branch misses %']
             misses_percent_df = pd.read_csv(f'{path}/misses_percent.csv', names=misses_percent_headers)
-            print(misses_percent_df[['Cache misses %', 'Branch misses %']].describe().applymap('{:,.2f}'.format))
-            print()
-            print(f"Run iteration with the highest cache miss %:    {misses_percent_df.loc[misses_percent_df['Cache misses %'] == misses_percent_df['Cache misses %'].max(), 'Run'].iloc[0]}")
-            print(f"Run iteration with the highest branch miss %:   {misses_percent_df.loc[misses_percent_df['Branch misses %'] == misses_percent_df['Branch misses %'].max(), 'Run'].iloc[0]}")
-            print()
+            # print(misses_percent_df[['Cache misses %', 'Branch misses %']].describe().applymap('{:,.2f}'.format))
+            # print()
+            # print(f"Run iteration with the highest cache miss %:    {misses_percent_df.loc[misses_percent_df['Cache misses %'] == misses_percent_df['Cache misses %'].max(), 'Run'].iloc[0]}")
+            # print(f"Run iteration with the highest branch miss %:   {misses_percent_df.loc[misses_percent_df['Branch misses %'] == misses_percent_df['Branch misses %'].max(), 'Run'].iloc[0]}")
+            # print()
+
+            pearson_corr_df.at['Cache misses %', 'Wall time'] = stats.pearsonr(wall_time_series, misses_percent_df['Cache misses %'])[0]
+            pearson_corr_df.at['Branch misses %', 'Wall time'] = stats.pearsonr(wall_time_series, misses_percent_df['Branch misses %'])[0]
+            spearman_corr_df.at['Cache misses %', 'Wall time'] = stats.spearmanr(wall_time_series, misses_percent_df['Cache misses %'])[0]
+            spearman_corr_df.at['Branch misses %', 'Wall time'] = stats.spearmanr(wall_time_series, misses_percent_df['Branch misses %'])[0]
+            
+            pearson_corr_df.at['Cache misses %', 'Stall time'] = stats.pearsonr(stall_time_series, misses_percent_df['Cache misses %'])[0]
+            pearson_corr_df.at['Branch misses %', 'Stall time'] = stats.pearsonr(stall_time_series, misses_percent_df['Branch misses %'])[0]
+            spearman_corr_df.at['Cache misses %', 'Stall time'] = stats.spearmanr(stall_time_series, misses_percent_df['Cache misses %'])[0]
+            spearman_corr_df.at['Branch misses %', 'Stall time'] = stats.spearmanr(stall_time_series, misses_percent_df['Branch misses %'])[0]
+            
+            pearson_corr_df.at['Cache misses %', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, misses_percent_df['Cache misses %'])[0]
+            pearson_corr_df.at['Branch misses %', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, misses_percent_df['Branch misses %'])[0]
+            spearman_corr_df.at['Cache misses %', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, misses_percent_df['Cache misses %'])[0]
+            spearman_corr_df.at['Branch misses %', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, misses_percent_df['Branch misses %'])[0]
+            
+            rows.append(["Cache miss \%", misses_percent_df['Cache misses %'].mean(), misses_percent_df['Cache misses %'].min(), misses_percent_df['Cache misses %'].max(), misses_percent_df['Cache misses %'].std(), misses_percent_df.loc[misses_percent_df['Cache misses %'] == misses_percent_df['Cache misses %'].max(), 'Run'].iloc[0], misses_percent_df.loc[misses_percent_df['Cache misses %'] == misses_percent_df['Cache misses %'].min(), 'Run'].iloc[0]])
+            rows.append(["Branch miss \%", misses_percent_df['Branch misses %'].mean(), misses_percent_df['Branch misses %'].min(), misses_percent_df['Branch misses %'].max(), misses_percent_df['Branch misses %'].std(), misses_percent_df.loc[misses_percent_df['Branch misses %'] == misses_percent_df['Branch misses %'].max(), 'Run'].iloc[0], misses_percent_df.loc[misses_percent_df['Branch misses %'] == misses_percent_df['Branch misses %'].min(), 'Run'].iloc[0]])
         
         if (os.path.isfile(f'{path}/hw_interrupts.csv')):
-            print("\n----------------------- HARDWARE INTERRUPTS -----------------------")
+            # print("\n----------------------- HARDWARE INTERRUPTS -----------------------")
             hw_interrupts_headers = ['Run', 'HW interrupts']
             hw_interrupts_df = pd.read_csv(f'{path}/hw_interrupts.csv', names=hw_interrupts_headers)
-            print(hw_interrupts_df[['HW interrupts']].describe().applymap('{:,.2f}'.format))
-            print()
-            print(f"Run iteration with the highest hardware interrupts: {hw_interrupts_df.loc[hw_interrupts_df['HW interrupts'] == hw_interrupts_df['HW interrupts'].max(), 'Run'].iloc[0]}")
-            print()
+            # print(hw_interrupts_df[['HW interrupts']].describe().applymap('{:,.2f}'.format))
+            # print()
+            # print(f"Run iteration with the highest hardware interrupts: {hw_interrupts_df.loc[hw_interrupts_df['HW interrupts'] == hw_interrupts_df['HW interrupts'].max(), 'Run'].iloc[0]}")
+            # print()
+
+            pearson_corr_df.at['HW interrupts', 'Wall time'] = stats.pearsonr(wall_time_series, hw_interrupts_df['HW interrupts'])[0]
+            spearman_corr_df.at['HW interrupts', 'Wall time'] = stats.spearmanr(wall_time_series, hw_interrupts_df['HW interrupts'])[0]
+            
+            pearson_corr_df.at['HW interrupts', 'Stall time'] = stats.pearsonr(stall_time_series, hw_interrupts_df['HW interrupts'])[0]
+            spearman_corr_df.at['HW interrupts', 'Stall time'] = stats.spearmanr(stall_time_series, hw_interrupts_df['HW interrupts'])[0]
+            
+            pearson_corr_df.at['HW interrupts', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, hw_interrupts_df['HW interrupts'])[0]
+            spearman_corr_df.at['HW interrupts', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, hw_interrupts_df['HW interrupts'])[0]
+
+            rows.append(['HW interrupts', hw_interrupts_df['HW interrupts'].mean(), hw_interrupts_df['HW interrupts'].min(), hw_interrupts_df['HW interrupts'].max(), hw_interrupts_df['HW interrupts'].std(), hw_interrupts_df.loc[hw_interrupts_df['HW interrupts'] == hw_interrupts_df['HW interrupts'].max(), 'Run'].iloc[0], hw_interrupts_df.loc[hw_interrupts_df['HW interrupts'] == hw_interrupts_df['HW interrupts'].min(), 'Run'].iloc[0]])
         
         if (os.path.isfile(f'{path}/ipc.csv')):
-            print("\n----------------------- INSTRUCTIONS PER CYCLE -----------------------")
+            # print("\n----------------------- INSTRUCTIONS PER CYCLE -----------------------")
             ipc_headers = ['Run', 'IPC']
             ipc_df = pd.read_csv(f'{path}/ipc.csv', names=ipc_headers)
-            print(ipc_df[['IPC']].describe().applymap('{:,.2f}'.format))
-            print()
-            print(f"Run iteration with the lowest IPC: {ipc_df.loc[ipc_df['IPC'] == ipc_df['IPC'].min(), 'Run'].iloc[0]}")
-            print()
+            # print(ipc_df[['IPC']].describe().applymap('{:,.2f}'.format))
+            # print()
+            # print(f"Run iteration with the lowest IPC: {ipc_df.loc[ipc_df['IPC'] == ipc_df['IPC'].min(), 'Run'].iloc[0]}")
+            # print()
+
+            pearson_corr_df.at['IPC', 'Wall time'] = stats.pearsonr(wall_time_series, ipc_df['IPC'])[0]            
+            spearman_corr_df.at['IPC', 'Wall time'] = stats.spearmanr(wall_time_series, ipc_df['IPC'])[0]            
+
+            pearson_corr_df.at['IPC', 'Stall time'] = stats.pearsonr(stall_time_series, ipc_df['IPC'])[0]            
+            spearman_corr_df.at['IPC', 'Stall time'] = stats.spearmanr(stall_time_series, ipc_df['IPC'])[0]            
+
+            pearson_corr_df.at['IPC', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, ipc_df['IPC'])[0]            
+            spearman_corr_df.at['IPC', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, ipc_df['IPC'])[0]            
+
+            rows.append(['IPC', ipc_df['IPC'].mean(), ipc_df['IPC'].min(), ipc_df['IPC'].max(), ipc_df['IPC'].std(), ipc_df.loc[ipc_df['IPC'] == ipc_df['IPC'].min(), 'Run'].iloc[0], ipc_df.loc[ipc_df['IPC'] == ipc_df['IPC'].max(), 'Run'].iloc[0]])
+        
+        if (os.path.isfile(f'{path}/page_faults.csv')):
+            page_faults_headers = ['Run', 'Page faults']
+            page_faults_df = pd.read_csv(f'{path}/page_faults.csv', names=page_faults_headers)
+
+            pearson_corr_df.at['Page faults', 'Wall time'] = stats.pearsonr(wall_time_series, page_faults_df['Page faults'])[0]            
+            spearman_corr_df.at['Page faults', 'Wall time'] = stats.spearmanr(wall_time_series, page_faults_df['Page faults'])[0]            
+
+            pearson_corr_df.at['Page faults', 'Stall time'] = stats.pearsonr(stall_time_series, page_faults_df['Page faults'])[0]            
+            spearman_corr_df.at['Page faults', 'Stall time'] = stats.spearmanr(stall_time_series, page_faults_df['Page faults'])[0]            
+
+            pearson_corr_df.at['Page faults', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, page_faults_df['Page faults'])[0]            
+            spearman_corr_df.at['Page faults', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, page_faults_df['Page faults'])[0]            
+
+            rows.append(['Page faults', page_faults_df['Page faults'].mean(), page_faults_df['Page faults'].min(), page_faults_df['Page faults'].max(), page_faults_df['Page faults'].std(), ipc_df.loc[page_faults_df['Page faults'] == page_faults_df['Page faults'].min(), 'Run'].iloc[0], ipc_df.loc[page_faults_df['Page faults'] == page_faults_df['Page faults'].max(), 'Run'].iloc[0]])
+        
+        if (os.path.isfile(f'{path}/mem_loads_stores.csv')):
+            mem_loads_stores_headers = ['Run', 'Mem loads', 'Mem stores']
+            mem_loads_stores_df = pd.read_csv(f'{path}/mem_loads_stores.csv', names=mem_loads_stores_headers)
+
+            pearson_corr_df.at['Mem loads', 'Wall time'] = stats.pearsonr(wall_time_series, mem_loads_stores_df['Mem loads'])[0]            
+            spearman_corr_df.at['Mem loads', 'Wall time'] = stats.spearmanr(wall_time_series, mem_loads_stores_df['Mem loads'])[0]            
+            pearson_corr_df.at['Mem stores', 'Wall time'] = stats.pearsonr(wall_time_series, mem_loads_stores_df['Mem stores'])[0]            
+            spearman_corr_df.at['Mem stores', 'Wall time'] = stats.spearmanr(wall_time_series, mem_loads_stores_df['Mem stores'])[0]            
+
+            pearson_corr_df.at['Mem loads', 'Stall time'] = stats.pearsonr(stall_time_series, mem_loads_stores_df['Mem loads'])[0]            
+            spearman_corr_df.at['Mem loads', 'Stall time'] = stats.spearmanr(stall_time_series, mem_loads_stores_df['Mem loads'])[0]            
+            pearson_corr_df.at['Mem stores', 'Stall time'] = stats.pearsonr(stall_time_series, mem_loads_stores_df['Mem stores'])[0]            
+            spearman_corr_df.at['Mem stores', 'Stall time'] = stats.spearmanr(stall_time_series, mem_loads_stores_df['Mem stores'])[0]            
+
+            pearson_corr_df.at['Mem loads', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, mem_loads_stores_df['Mem loads'])[0]            
+            spearman_corr_df.at['Mem loads', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, mem_loads_stores_df['Mem loads'])[0]            
+            pearson_corr_df.at['Mem stores', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, mem_loads_stores_df['Mem stores'])[0]            
+            spearman_corr_df.at['Mem stores', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, mem_loads_stores_df['Mem stores'])[0]            
+
+            rows.append(['Mem loads', mem_loads_stores_df['Mem loads'].mean(), mem_loads_stores_df['Mem loads'].min(),\
+                          mem_loads_stores_df['Mem loads'].max(), mem_loads_stores_df['Mem loads'].std(), \
+                            ipc_df.loc[mem_loads_stores_df['Mem loads'] == mem_loads_stores_df['Mem loads'].min(), 'Run'].iloc[0],\
+                                  ipc_df.loc[mem_loads_stores_df['Mem loads'] == mem_loads_stores_df['Mem loads'].max(), 'Run'].iloc[0]])
+            rows.append(['Mem stores', mem_loads_stores_df['Mem stores'].mean(), mem_loads_stores_df['Mem stores'].min(),\
+                          mem_loads_stores_df['Mem stores'].max(), mem_loads_stores_df['Mem stores'].std(), \
+                            ipc_df.loc[mem_loads_stores_df['Mem stores'] == mem_loads_stores_df['Mem stores'].min(), 'Run'].iloc[0],\
+                                  ipc_df.loc[mem_loads_stores_df['Mem stores'] == mem_loads_stores_df['Mem stores'].max(), 'Run'].iloc[0]])
+        
+        if (os.path.isfile(f'{path}/pidstat_average.csv')):
+            pidstat_average_headers = ['Run', 'Average', 'UID', 'PID', '"%"usr', '"%"system', '"%"guest', '"%"wait', '"%"CPU', 'CPU', 'Command']
+            pidstat_average_df = pd.read_csv(f'{path}/pidstat_average.csv', verbose=True, names=pidstat_average_headers)
+            pidstat_average_df['Run'] = pidstat_average_df['Run'].astype("string") if pidstat_average_df['Run'].nunique() < 6 else pidstat_average_df['Run']
+            pidstat_average_df = pidstat_average_df.groupby(['Run', 'Command']).agg({'UID': 'first', 'PID': 'first', '"%"usr': 'sum', '"%"system': 'sum', '"%"guest': 'sum', '"%"wait': 'sum', '"%"CPU': 'sum'}).reset_index()
+            pidstat_average_df = pidstat_average_df.pivot(index='Run', columns='Command', values='"%"CPU')
+            pidstat_average_df = pidstat_average_df.fillna(0)
+
+            # Compute the mean of each column
+            column_means = pidstat_average_df.mean()
+
+            # Sort the column names based on their mean values
+            column_names = column_means.sort_values(ascending=False).index.tolist()
+
+            # Reorder the columns based on the sorted names
+            pidstat_average_df = pidstat_average_df[column_names]
+
+            # Keep only the 10 first columns
+            pidstat_average_df = pidstat_average_df.iloc[:, : 10]
+
+            pearson_corr_df.at['App CPU %', 'Wall time'] = stats.pearsonr(wall_time_series, pidstat_average_df[process_name])[0]            
+            spearman_corr_df.at['App CPU %', 'Wall time'] = stats.spearmanr(wall_time_series, pidstat_average_df[process_name])[0]
+
+            pearson_corr_df.at['App CPU %', 'Stall time'] = stats.pearsonr(stall_time_series, pidstat_average_df[process_name])[0]            
+            spearman_corr_df.at['App CPU %', 'Stall time'] = stats.spearmanr(stall_time_series, pidstat_average_df[process_name])[0]
+
+            pearson_corr_df.at['App CPU %', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, pidstat_average_df[process_name])[0]            
+            spearman_corr_df.at['App CPU %', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, pidstat_average_df[process_name])[0]
+
+        if (os.path.isfile(f'{path}/pidstat_mem_average.csv')):
+            pidstat_mem_average_headers = ['Run', 'Average', 'UID', 'PID', 'minflt/s', 'majflt/s', 'VSZ (kB)', 'RSS (kB)', '"%"MEM', 'Command']
+
+            # %MEM
+            pidstat_mem_average_df = pd.read_csv(f'{path}/pidstat_mem_average.csv', verbose=True, names=pidstat_mem_average_headers)
+            pidstat_mem_average_df['Run'] = pidstat_mem_average_df['Run'].astype("string") if pidstat_mem_average_df['Run'].nunique() < 6 else pidstat_mem_average_df['Run']
+            pidstat_mem_average_df = pidstat_mem_average_df.groupby(['Run', 'Command']).agg({'UID': 'first', 'PID': 'first', 'minflt/s': 'mean', 'majflt/s': 'mean', 'VSZ (kB)': 'sum', 'RSS (kB)': 'sum', '"%"MEM': 'sum'}).reset_index()
+            pidstat_mem_average_df = pidstat_mem_average_df.pivot(index='Run', columns='Command', values='"%"MEM')
+            pidstat_mem_average_df = pidstat_mem_average_df.fillna(0)
+
+            # Compute the mean of each column
+            column_means = pidstat_mem_average_df.mean()
+
+            # Sort the column names based on their mean values
+            column_names = column_means.sort_values(ascending=False).index.tolist()
+
+            # Reorder the columns based on the sorted names
+            pidstat_mem_average_df = pidstat_mem_average_df[column_names]
+
+            # Keep only the 10 first columns
+            pidstat_mem_average_df = pidstat_mem_average_df.iloc[:, : 10]
+
+            pearson_corr_df.at['App mem %', 'Wall time'] = stats.pearsonr(wall_time_series, pidstat_mem_average_df[process_name])[0]            
+            spearman_corr_df.at['App mem %', 'Wall time'] = stats.spearmanr(wall_time_series, pidstat_mem_average_df[process_name])[0]
+
+            pearson_corr_df.at['App mem %', 'Stall time'] = stats.pearsonr(stall_time_series, pidstat_mem_average_df[process_name])[0]            
+            spearman_corr_df.at['App mem %', 'Stall time'] = stats.spearmanr(stall_time_series, pidstat_mem_average_df[process_name])[0]
+
+            pearson_corr_df.at['App mem %', 'Ideal CPU time'] = stats.pearsonr(ideal_time_series, pidstat_mem_average_df[process_name])[0]            
+            spearman_corr_df.at['App mem %', 'Ideal CPU time'] = stats.spearmanr(ideal_time_series, pidstat_mem_average_df[process_name])[0]
+
+        if (os.path.isfile(f'{path}/sar_r_average.csv')):
+            sar_r_average_headers = ['Run', 'Time', 'kbmemfree', 'kbavail', 'kbmemused', '"%"memused', 'kbbuffers', 'kbcached', 'kbcommit', '"%"commit', 'kbactive', 'kbinact', 'kbdirty', 'kbanonpg', 'kbslab', 'kbkstack', 'kbpgtbl', 'kbvmused']
+            sar_r_average_df = pd.read_csv(f'{path}/sar_r_average.csv', verbose=True, names=sar_r_average_headers)
+            sar_r_average_df.set_index('Run')
+            params = sar_r_average_headers.copy()
+            params.remove('Run')
+            params.remove('Time')
+            pearson_corr_df, spearman_corr_df = corr(wall_time_series, stall_time_series, ideal_time_series, pearson_corr_df, spearman_corr_df, params, sar_r_average_df)
+        
+        pearson_corr_df = pearson_corr_df.sort_values(by=['Wall time'], ascending=False)
+        for row in pearson_corr_df.iterrows():
+            arr = [row[0]]
+            for val in row[1]:
+                arr.append(val)
+            rows_pearson.append(arr)
+
+        spearman_corr_df = spearman_corr_df.sort_values(by=['Wall time'], ascending=False)
+        for row in spearman_corr_df.iterrows():
+            arr = [row[0]]
+            for val in row[1]:
+                arr.append(val)
+            rows_spearman.append(arr)
+
+        summary_table.add_rows(rows)
+        pearson_table.add_rows(rows_pearson)
+        spearman_table.add_rows(rows_spearman)
+        
+        print("\nSummary")
+        print(summary_table.draw())
+        
+        print("\nPearson")
+        print(pearson_table.draw())
+
+        print("\nSpearman")
+        print(spearman_table.draw())
+
+        # print(latextable.draw_latex(summary_table, caption="Summary table.", label="table:summary_table"))
+        # print(latextable.draw_latex(pearson_table, caption="Pearson correlation table.", label="table:pearson_table"))
+        # print(latextable.draw_latex(spearman_table, caption="Spearman correlation table.", label="table:spearman_table"))
+        
     else:
         sys.stdout = old_stdout
         summary = open(f"{path}/summary.txt", "r")
@@ -405,37 +709,61 @@ def main(argv):
             times_df = pd.read_csv(f'{path}/times.csv', names=times_headers)
             times_df['Run'] = times_df['Run'].astype("string") if times_df.shape[0] < 6 else times_df['Run']
             times_df.set_index('Run')
-            fig = times_df.plot(kind='line', x='Run', y=['Wall time'], ylim=[0, times_df['Wall time'].max()*1.1])
+            fig = times_df.plot(kind='line', x='Run', y=['Wall time'], ylim=[0, 140])
             plt.xlabel('Run iteration')
             plt.ylabel('Time (s)')
             plt.title(f'Wall time per run iteration')
             if (save_graphs):
                 fig.figure.savefig(f'{path}/figures/wall_time.png', format="png")
-            fig = times_df.plot(kind='line', x='Run', y=['Ideal CPU time', 'Stall time', 'Ideal CPU time with stall cycles', 'Actual CPU time'], ylim=[0, times_df['Wall time'].max()*1.1])
+            fig = times_df.plot(kind='line', x='Run', y=['Ideal CPU time'], ylim=[0, 140])
+            plt.xlabel('Run iteration')
+            plt.ylabel('Time (s)')
+            plt.title(f'Ideal CPU time per run iteration')
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/ideal_time.png', format="png")
+            fig = times_df.plot(kind='line', x='Run', y=['Stall time'], ylim=[0, 140])
+            plt.xlabel('Run iteration')
+            plt.ylabel('Time (s)')
+            plt.title(f'Stall time per run iteration')
+            if (save_graphs):
+                fig.figure.savefig(f'{path}/figures/stall_time.png', format="png")
+            fig = times_df.plot(kind='line', x='Run', y=['Ideal CPU time', 'Stall time', 'Actual CPU time'], ylim=[0, 140])
             plt.xlabel('Run iteration')
             plt.ylabel('Time (s)')
             plt.title(f'Estimated and measured times per run iteration')
             if (save_graphs):
                 fig.figure.savefig(f'{path}/figures/times.png', format="png")
         
+        # if (os.path.isfile(f'{path}/scores.csv')):
+        #     scores_headers = ['Run', 'Score', 'CPU utilization score', 'CPU idle score']
+        #     scores_df = pd.read_csv(f'{path}/scores.csv', names=scores_headers)
+        #     scores_df['Run'] = scores_df['Run'].astype("string") if scores_df.shape[0] < 6 else scores_df['Run']
+        #     scores_df.set_index('Run')
+        #     fig = scores_df.plot(kind='line', x='Run', y=['Score'], ylim=[0, 110])
+        #     plt.xlabel('Run iteration')
+        #     plt.ylabel('Score')
+        #     plt.title(f'Score per run iteration')
+        #     if (save_graphs):
+        #         fig.figure.savefig(f'{path}/figures/score.png', format="png")
+        
         if (os.path.isfile(f'{path}/scores.csv')):
-            scores_headers = ['Run', 'CPU time score', 'CPU utilization score', 'CPU idle score']
+            scores_headers = ['Run', 'CPU time score', 'App CPU utilization', 'Idle CPU']
             scores_df = pd.read_csv(f'{path}/scores.csv', names=scores_headers)
             scores_df['Run'] = scores_df['Run'].astype("string") if scores_df.shape[0] < 6 else scores_df['Run']
             scores_df.set_index('Run')
-            fig = scores_df.plot(kind='line', x='Run', y=['CPU time score', 'CPU utilization score', 'CPU idle score'], ylim=[0, 110])
+            fig = scores_df.plot(kind='line', x='Run', y=['App CPU utilization', 'Idle CPU'], ylim=[0, 110])
             plt.xlabel('Run iteration')
-            plt.ylabel('Score')
-            plt.title(f'Scores per run iteration')
+            plt.ylabel('CPU utilization (%)')
+            plt.title(f'App CPU utilization per run iteration')
             if (save_graphs):
-                fig.figure.savefig(f'{path}/figures/scores.png', format="png")
+                fig.figure.savefig(f'{path}/figures/cpu_utilization.png', format="png")
         
         if (os.path.isfile(f'{path}/misses_percent.csv') and verbose):
             misses_percent_headers = ['Run', 'Cache misses percentage', 'Branch misses percentage']
             misses_percent_df = pd.read_csv(f'{path}/misses_percent.csv', names=misses_percent_headers)
             misses_percent_df['Run'] = misses_percent_df['Run'].astype("string") if misses_percent_df.shape[1] < 6 else misses_percent_df['Run']
             misses_percent_df.set_index('Run')
-            fig = misses_percent_df.plot(kind='line', x='Run', y=['Cache misses percentage', 'Branch misses percentage'], ylim=[0, 110])
+            fig = misses_percent_df.plot(kind='line', x='Run', y=['Cache misses percentage', 'Branch misses percentage'], ylim=[0, 50])
             plt.xlabel('Run iteration')
             plt.ylabel('Miss %')
             plt.title(f'Cache and branch misses %')
@@ -447,19 +775,19 @@ def main(argv):
             hw_interrupts_df = pd.read_csv(f'{path}/hw_interrupts.csv', names=hw_interrupts_headers)
             hw_interrupts_df['Run'] = hw_interrupts_df['Run'].astype("string") if hw_interrupts_df.shape[0] < 6 else hw_interrupts_df['Run']
             hw_interrupts_df.set_index('Run')
-            fig = hw_interrupts_df.plot(kind='line', x='Run', y=['HW interrupts'], ylim=[0, hw_interrupts_df['HW interrupts'].max()*1.1])
+            fig = hw_interrupts_df.plot(kind='line', x='Run', y=['HW interrupts'], ylim=[0, 260000])
             plt.xlabel('Run iteration')
             plt.ylabel('HW interrupt counts')
             plt.title(f'Hardware interrupts')
             if (save_graphs):
-                fig.figure.savefig(f'{path}/figures/misses_percent.png', format="png")
+                fig.figure.savefig(f'{path}/figures/hw_interrupts.png', format="png")
         
         if (os.path.isfile(f'{path}/ipc.csv') and verbose):
             ipc_headers = ['Run', 'IPC']
             ipc_df = pd.read_csv(f'{path}/ipc.csv', names=ipc_headers)
             ipc_df['Run'] = ipc_df['Run'].astype("string") if ipc_df.shape[0] < 6 else ipc_df['Run']
             ipc_df.set_index('Run')
-            fig = ipc_df.plot(kind='line', x='Run', y=['IPC'], ylim=[0, ipc_df['IPC'].max()*1.1])
+            fig = ipc_df.plot(kind='line', x='Run', y=['IPC'], ylim=[0.5, 1.5])
             plt.xlabel('Run iteration')
             plt.ylabel('IPC')
             plt.title(f'Instructions per cycle')
@@ -481,10 +809,10 @@ def main(argv):
                     markevery=(top_five_processes_df.shape[0] // 10)
                 if (top_five_processes_df.shape[0] < 10):
                     markevery=1
-                fig = top_five_processes_df.plot(kind='line', style=style_list, markevery=markevery)
+                fig = top_five_processes_df.plot(kind='line', style=style_list, markevery=markevery, ylim=[0, 100000])
                 plt.xlabel('Run iteration')
                 plt.ylabel('Runtime (ms)')
-                plt.title(f'Top <=5 process runtimes for each iteration in CPU {i}')
+                plt.title(f'Top 3 process runtimes for each iteration in CPU {i}')
                 if (save_graphs):
                     fig.figure.savefig(f'{path}/figures/top_five_processes_cpu{i}.png', format="png")
 
@@ -517,7 +845,7 @@ def main(argv):
                 markevery = (pidstat_average_df.shape[0] // 10)
             if (pidstat_average_df.shape[0] < 10):
                 markevery = 1
-            fig = pidstat_average_df.plot(kind='line', style=style_list, markevery=markevery)
+            fig = pidstat_average_df.plot(kind='line', style=style_list, markevery=markevery, ylim=[0, 110])
             plt.xlabel('Run iteration')
             plt.ylabel('Relative CPU usage (%) (ms)')
             plt.title(f'CPU usage of top 10 running processes for each iteration across all CPUs')
@@ -555,7 +883,7 @@ def main(argv):
                 markevery = (pidstat_mem_average_df.shape[0] // 10)
             if (pidstat_mem_average_df.shape[0] < 10):
                 markevery = 1
-            fig = pidstat_mem_average_df.plot(kind='line', style=style_list, markevery=markevery)
+            fig = pidstat_mem_average_df.plot(kind='line', style=style_list, markevery=markevery, ylim=[0, 10])
             plt.xlabel('Run iteration')
             plt.ylabel('Relative memory usage (%)')
             plt.title(f'Relative memory usage of top 10 running processes for each iteration across all CPUs')
@@ -642,7 +970,7 @@ def main(argv):
                 markevery = (pidstat_mem_all_df.shape[0] // 10)
             if (pidstat_mem_all_df.shape[0] < 10):
                 markevery = 1
-            fig = pidstat_mem_all_df.plot(kind='line', style=style_list, markevery=markevery)
+            fig = pidstat_mem_all_df.plot(kind='line', style=style_list, markevery=markevery, ylim=[0, 10])
             plt.xlabel('Time (hour:minute:second)')
             plt.ylabel('Relative memory usage (%)')
             plt.title(f'Memory usage of top 10 running processes across all CPUs')
@@ -661,21 +989,21 @@ def main(argv):
         plt.title('vmstat -t -w 1 Processes')
         if (save_graphs):
             fig.figure.savefig(f'{path}/figures/vmstat_processes.png', format="png")
-        fig = vmstat_df.plot(kind='line', x='seconds', y=['tot swpd used', 'mem swapped in/s', 'mem swapped out/s'])
+        fig = vmstat_df.plot(kind='line', x='seconds', y=['tot swpd used', 'mem swapped in/s', 'mem swapped out/s'], ylim=[0, 50000])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Size (KiB)')
         plt.title('vmstat -t -w 1 Swap')
         if (save_graphs):
             fig.figure.savefig(f'{path}/figures/vmstat_swap.png', format="png")
-        fig = vmstat_df.plot(kind='line', x='seconds', y=['from block device (KiB/s)', 'to block device (KiB/s)'])
+        fig = vmstat_df.plot(kind='line', x='seconds', y=['from block device (KiB/s)', 'to block device (KiB/s)'], ylim=[0, 170000])
         plt.xlabel('Time (hour:minute:second)')
         plt.ylabel('Size per second (KiB/s)')
         plt.title('vmstat -t -w 1 I/O')
         if (save_graphs):
             fig.figure.savefig(f'{path}/figures/vmstat_block_device.png', format="png")
-        fig = vmstat_df.plot(kind='line', x='seconds', y=['interrupts/s', 'cxt switch/s'])
+        fig = vmstat_df.plot(kind='line', x='seconds', y=['cxt switch/s'], ylim=[0, 30000])
         plt.xlabel('Time (hour:minute:second)')
-        plt.ylabel('Count')
+        plt.ylabel('Count per second')
         plt.title('vmstat -t -w 1 System')
         if (save_graphs):
             fig.figure.savefig(f'{path}/figures/vmstat_cxt_switches.png', format="png")
