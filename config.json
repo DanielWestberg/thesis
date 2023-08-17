@@ -2,13 +2,14 @@
   "process_name": "confd.smp",
   "app_path": "./",
   "pre_run_command": ". /home/dwdd/confd-basic/confd-basic-8.0.2.linux.x86_64/confd/confdrc",
-  "run_command": "netconf-console --edit-config /home/dwdd/confd-basic/confd-basic-8.0.2.linux.x86_64/northbound-perf/data.xml",
+  "run_command": "./netconf.sh",
   "is_executable": "no",
   "noise_type": "none",
   "noise_workers": 1,
   "cpu_isolation": 1,
-  "all_cpus": "no",
-  "plot_graphs": "yes",
-  "n_iterations": 150,
+  "all_cpus": "yes",
+  "plot_graphs": "no",
+  "verbose": "no",
+  "n_iterations": 1000,
   "sleep": 0
 }

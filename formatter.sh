@@ -77,6 +77,7 @@ do
     
     sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_raw.txt | sed 's/\s\+/,/g' | grep "Average" | grep . > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_average.csv
     sed -i -e "s/^/$i,/" $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_average.csv
+    echo "$i" >> $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/sar_r_average.csv
 
     # Format pidstat
     sed -r 's/[,]+/./g' $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat_raw.txt | sed 's/\s\+/,/g' | grep $PROCESS_NAME | egrep -v "Linux|Average|%" > $SCRIPT_DIR/$OUTPUT_DIR/$CURRENT_TIME/$i/pidstat.csv
